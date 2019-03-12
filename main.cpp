@@ -20,6 +20,7 @@ int main(int, char**)
     namedWindow("edges",1);
     for(;;)
     {
+        //1) get new image
         Mat frame;
         cap >> frame; // get a new frame from camera
         cvtColor(frame, edges, COLOR_BGR2GRAY);
@@ -30,18 +31,13 @@ int main(int, char**)
         cout << frame.at<float>(20, 20) << endl;
         auto intensity = frame.at<Vec3b>(100, 100);
         cout << (int)intensity[0] << " " << (int)intensity[1] << " "  << (int)intensity[2] << endl;
+        //extract the leadError from it or read the error from the dedicated error sensors
+        //DoBackprop of the leadError
         //get differenceGreyValues as an array
-
-
-        //pass the pointer to the Net
+        //pass the above array to the Net as a pointer
         //DoForward propagation
         //getPredictiveAction
         //pass the action to Robot
-        //get new image
-            //extract the leadError from it
-            //DoBackprop of the leadError
-            //extract new predictive differenceGreyValues
-
     }
     // the camera will be deinitialized automatically in VideoCapture destructor
     return 0;

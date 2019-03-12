@@ -3,7 +3,7 @@ project(robonet)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_subdirectory(/home/sama/Documents/clBP /home/sama/Documents/clBP/cmake-build-debug)
+add_subdirectory(clBP)
 
 find_package(OpenCV REQUIRED)
 

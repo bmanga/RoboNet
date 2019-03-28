@@ -1,4 +1,3 @@
-#pragma once
 /*!
 \file    serialib.h
 \brief   Serial library to communicate throught serial port, or any device emulating a serial port.
@@ -22,116 +21,116 @@ This is a licence-free software, it can be used by anyone who try to build a bet
 
 
 // Used for TimeOut operations
-#//include <sys/time.h>
+#include <sys/time.h>
 // Include for windows
 #if defined (_WIN32) || defined( _WIN64)
-	// Accessing to the serial port under Windows
-#include <windows.h>
+    // Accessing to the serial port under Windows
+    #include <windows.h>
 #endif
 
 // Include for Linux
 #ifdef __linux__
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/shm.h>
-#include <termios.h>
-#include <string.h>
-#include <iostream>
-// File control definitions
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
+    #include <stdlib.h>
+    #include <sys/types.h>
+    #include <sys/shm.h>
+    #include <termios.h>
+    #include <string.h>
+    #include <iostream>
+    // File control definitions
+    #include <fcntl.h>
+    #include <unistd.h>
+    #include <sys/ioctl.h>
 #endif
 
 
 
 /*!  \class serialib
-	 \brief     This class can manage a serial port. The class allows basic operations (opening the connection, reading, writing data and closing the connection).
-	 \example   Example1.cpp
+     \brief     This class can manage a serial port. The class allows basic operations (opening the connection, reading, writing data and closing the connection).
+     \example   Example1.cpp
    */
 
 
 class serialib
 {
 public:
-	// Constructor of the class
-	serialib();
+    // Constructor of the class
+    serialib    ();
 
-	// Destructor
-	~serialib();
-
-
-
-	//_________________________________________
-	// ::: Configuration and initialization :::
-
-
-	// Open a device
-	char    Open(const char *Device, const unsigned int Bauds);
-
-	// Close the current device
-	void    Close();
+    // Destructor
+    ~serialib   ();
 
 
 
-	//___________________________________________
-	// ::: Read/Write operation on characters :::
+    //_________________________________________
+    // ::: Configuration and initialization :::
 
 
-	// Write a char
-	char    WriteChar(char);
+    // Open a device
+    char    Open        (const char *Device,const unsigned int Bauds);
 
-	// Read a char (with timeout)
-	char    ReadChar(char *pByte, const unsigned int TimeOut_ms = NULL);
-
-
-
-	//________________________________________
-	// ::: Read/Write operation on strings :::
-
-
-	// Write a string
-	char    WriteString(const char *String);
-	// Read a string (with timeout)
-	int     ReadString(char *String,
-		char FinalChar,
-		unsigned int MaxNbBytes,
-		const unsigned int TimeOut_ms = NULL);
+    // Close the current device
+    void    Close();
 
 
 
-	// _____________________________________
-	// ::: Read/Write operation on bytes :::
+    //___________________________________________
+    // ::: Read/Write operation on characters :::
 
 
-	// Write an array of bytes
-	char    Write(const void *Buffer, const unsigned int NbBytes);
+    // Write a char
+    char    WriteChar   (char);
 
-	// Read an array of byte (with timeout)
-	int     Read(void *Buffer, unsigned int MaxNbBytes, const unsigned int TimeOut_ms = NULL);
-
-
-	// _________________________
-	// ::: Special operation :::
+    // Read a char (with timeout)
+    char    ReadChar    (char *pByte,const unsigned int TimeOut_ms=NULL);
 
 
-	// Empty the received buffer
-	void    FlushReceiver();
 
-	// Return the number of bytes in the received buffer
-	int     Peek();
+    //________________________________________
+    // ::: Read/Write operation on strings :::
+
+
+    // Write a string
+    char    WriteString (const char *String);
+    // Read a string (with timeout)
+    int     ReadString  (   char *String,
+                            char FinalChar,
+                            unsigned int MaxNbBytes,
+                            const unsigned int TimeOut_ms=NULL);
+
+
+
+    // _____________________________________
+    // ::: Read/Write operation on bytes :::
+
+
+    // Write an array of bytes
+    char    Write       (const void *Buffer, const unsigned int NbBytes);
+
+    // Read an array of byte (with timeout)
+    int     Read        (void *Buffer,unsigned int MaxNbBytes,const unsigned int TimeOut_ms=NULL);
+
+
+    // _________________________
+    // ::: Special operation :::
+
+
+    // Empty the received buffer
+    void    FlushReceiver();
+
+    // Return the number of bytes in the received buffer
+    int     Peek();
 
 private:
-	// Read a string (no timeout)
-	int     ReadStringNoTimeOut(char *String, char FinalChar, unsigned int MaxNbBytes);
+    // Read a string (no timeout)
+    int     ReadStringNoTimeOut  (char *String,char FinalChar,unsigned int MaxNbBytes);
 
 
 #if defined (_WIN32) || defined( _WIN64)
-	HANDLE          hSerial;
-	COMMTIMEOUTS    timeouts;
+    HANDLE          hSerial;
+    COMMTIMEOUTS    timeouts;
 #endif
 #ifdef __linux__
-	int             fd;
+    int             fd;
 #endif
 
 };
@@ -139,26 +138,24 @@ private:
 
 
 /*!  \class     TimeOut
-	 \brief     This class can manage a timer which is used as a timeout.
+     \brief     This class can manage a timer which is used as a timeout.
    */
-   // Class TimeOut
+// Class TimeOut
 class TimeOut
 {
 public:
 
-	// Constructor
-	TimeOut();
+    // Constructor
+    TimeOut();
 
-	// Init the timer
-	void                InitTimer();
+    // Init the timer
+    void                InitTimer();
 
-	// Return the elapsed time since initialization
-	unsigned long int   ElapsedTime_ms();
+    // Return the elapsed time since initialization
+    unsigned long int   ElapsedTime_ms();
 
-private:
-	struct timeval      PreviousTime;
-	SYSTEMTIME stOld;
-
+private:    
+    struct timeval      PreviousTime;
 };
 
 
@@ -167,40 +164,40 @@ private:
   \mainpage serialib class
 
   \brief
-	   \htmlonly
-	   <TABLE>
-	   <TR><TD>
-			<a href="../serialibv1.2.zip" title="Download the serialib class">
-				<TABLE>
-				<TR><TD><IMG SRC="download.png" BORDER=0 WIDTH=100> </TD></TR>
-				<TR><TD><P ALIGN="center">[Download]</P> </TD></TR>
-				</TABLE>
-			</A>
-			</TD>
-			<TD>
-				<script type="text/javascript"><!--google_ad_client = "ca-pub-0665655683291467";
-				google_ad_slot = "0230365165";
-				google_ad_width = 728;
-				google_ad_height = 90;
-				//-->
-				</script>
-				<script type="text/javascript"
-				src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
-				</script>
-			</TD>
-		</TR>
-		</TABLE>
+       \htmlonly
+       <TABLE>
+       <TR><TD>
+            <a href="../serialibv1.2.zip" title="Download the serialib class">
+                <TABLE>
+                <TR><TD><IMG SRC="download.png" BORDER=0 WIDTH=100> </TD></TR>
+                <TR><TD><P ALIGN="center">[Download]</P> </TD></TR>
+                </TABLE>
+            </A>
+            </TD>
+            <TD>
+                <script type="text/javascript"><!--google_ad_client = "ca-pub-0665655683291467";
+                google_ad_slot = "0230365165";
+                google_ad_width = 728;
+                google_ad_height = 90;
+                //-->
+                </script>
+                <script type="text/javascript"
+                src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+                </script>
+            </TD>
+        </TR>
+        </TABLE>
 
-		\endhtmlonly
+        \endhtmlonly
 
-	The class serialib offers simple access to the serial port devices for windows and linux. It can be used for any serial device (Built-in serial port, USB to RS232 converter, arduino board or any hardware using or emulating a serial port)
-	\image html serialib.png
-	The class can be used under Windows and Linux.
-	The class allows basic operations like :
-	- opening and closing connection
-	- reading data (characters, array of bytes or strings)
-	- writing data (characters, array of bytes or strings)
-	- non-blocking functions (based on timeout).
+    The class serialib offers simple access to the serial port devices for windows and linux. It can be used for any serial device (Built-in serial port, USB to RS232 converter, arduino board or any hardware using or emulating a serial port)
+    \image html serialib.png
+    The class can be used under Windows and Linux.
+    The class allows basic operations like :
+    - opening and closing connection
+    - reading data (characters, array of bytes or strings)
+    - writing data (characters, array of bytes or strings)
+    - non-blocking functions (based on timeout).
 
 
   \author   Philippe Lucidarme (University of Angers) <serialib@googlegroups.com>

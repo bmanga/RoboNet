@@ -13,25 +13,20 @@ constexpr int ESC_key = 27;
 
 static constexpr int nLayers = 2;
 static constexpr int nInputs = 2;
-static constexpr int nPredictors = 2;
+
+static constexpr int nPredictorCols = 3;
+static constexpr int nPredictorRows = 4;
+static constexpr int nPredictors = nPredictorCols * nPredictorRows;
 
 static constexpr double constantSpeed = 10;
-int nNeurons[nLayers] = { 2, 1 };
+
+int nNeurons[nLayers] = { nPredictors, 1 };
+
 Net net{ nLayers, nNeurons, nInputs };
 
 
 
-int space = 0;
-int x_1 = space;
-int y_1 = 300;
-int xboxsize = 160;
-int yboxsize = y_1 + xboxsize;
-int x_2 = x_1 + xboxsize + space;
-int x_3 = 640-space-xboxsize; // 4th square
-int x_4 = x_3 - space - xboxsize;
-
-
-int16_t onStepCompleted(int deltaSensorData, double *predictors)
+int16_t onStepCompleted(int deltaSensorData, const std::vector<double> predictorDeltas)
 {
 	double errorGain = 1;
 	double error = errorGain * deltaSensorData;
@@ -41,7 +36,7 @@ int16_t onStepCompleted(int deltaSensorData, double *predictors)
 	int gain = 50;
 
 	cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
-	net.setInputs(predictors);
+	net.setInputs(predictorDeltas.data());
 	double learningRate = 0.01;
 	net.setLearningRate(learningRate);
 	net.propInputs();
@@ -83,39 +78,58 @@ int main(int, char**)
 
     Mat edges;
     namedWindow("edges",1);
+
+
+    std::vector<double> predictorDeltaMeans;
+    predictorDeltaMeans.reserve(nPredictorCols * nPredictorRows);
 	
 	for (;;)
 	{
+	  predictorDeltaMeans.clear();
+
 		Mat frame;
 		cap >> frame; // get a new frame from camera
 		cvtColor(frame, edges, COLOR_BGR2GRAY);
 
-		rectangle(edges, Point(x_1, y_1), Point(x_1 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
-		rectangle(edges, Point(x_2, y_1), Point(x_2 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
-		rectangle(edges, Point(x_3, y_1), Point(x_3 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
-		rectangle(edges, Point(x_4, y_1), Point(x_4 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
+		// Define the rect area that we want to consider.
 
-		Mat square1(edges, Rect(x_1, y_1, xboxsize, xboxsize));
-		Mat square2(edges, Rect(x_2, y_1, xboxsize, xboxsize));
-		Mat square3(edges, Rect(x_4, y_1, xboxsize, xboxsize));
-		Mat square4(edges, Rect(x_3, y_1, xboxsize, xboxsize));
+		int areaWidth = 500;
+		int startX = (frame.cols - areaWidth) / 2;
+		auto area = Rect{startX, 150, areaWidth, 300};
 
-		Scalar value1 = mean(square1);
-		Scalar value2 = mean(square2);
-		Scalar value3 = mean(square3);
-		Scalar value4 = mean(square4);
-		float predictor1 = value1[0] - value4[0];
-		float predictor2 = value2[0] - value3[0];
+		int predictorWidth = area.width / 2 / nPredictorCols;
+		int predictorHeight = area.height / nPredictorRows;
 
-		double predictors[nPredictors] = { predictor1, predictor2};
-		imshow("edges", edges);
+		rectangle(edges, area, Scalar(122, 144, 255));
+
+    int areaMiddleLine = area.width / 2 + area.x;
+
+
+    for (int k = 0; k < nPredictorRows; ++k) {
+		  for (int j = 0; j < nPredictorCols; ++j) {
+        auto lPred = Rect(areaMiddleLine - (j + 1) * predictorWidth, area.y + k * predictorHeight, predictorWidth, predictorHeight);
+        auto rPred = Rect(areaMiddleLine + (j) * predictorWidth, area.y + k * predictorHeight, predictorWidth, predictorHeight);
+
+        predictorDeltaMeans.push_back(mean(Mat(edges, lPred))[0] - mean(Mat(edges,rPred))[0]);
+
+        rectangle(edges, lPred, Scalar(100, 100, 100));
+        rectangle(edges, rPred, Scalar(100, 100, 100));
+		  }
+		}
+
+    cvtColor(edges, frame, CV_GRAY2RGB);
+
+    line(frame, {areaMiddleLine, area.tl().y}, {areaMiddleLine, area.br().y}, Scalar(50, 50, 255));
+
+
+		imshow("visual", frame);
 		
 		int8_t deltaSensor = 0;
 		Ret = LS.Read(&deltaSensor, sizeof(deltaSensor));
 
 		if (Ret > 0) {
 			cout << "delta sensor is " << (int)deltaSensor << std::endl;
-			int16_t error = onStepCompleted(deltaSensor, predictors);
+			int16_t error = onStepCompleted(deltaSensor, predictorDeltaMeans);
 			Ret = LS.Write(&error, sizeof(error));
 		}
 

@@ -32,7 +32,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> predictor
 
 
 
-	int gain = 50;
+	int gain = 1;
 
 	cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
 	net.setInputs(predictorDeltas.data());
@@ -47,7 +47,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> predictor
 	net.saveWeights();
 	double error2 = (error + net.getOutput(0)) * gain;
 	std::cout << "error out is: " << error2 << std::endl;
-	return (int16_t)(error2 * 1);
+	return (int16_t)(error2 * 0.5);
 }
 
 #if defined (_WIN32) || defined( _WIN64)
@@ -62,6 +62,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> predictor
 
 int main(int, char**)
 {
+	net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
 	serialib LS;
 	char Ret = LS.Open(DEVICE_PORT, 9600);
 	if (Ret != 1) {                                                           // If an error occured...
@@ -91,9 +92,9 @@ int main(int, char**)
 
 		// Define the rect area that we want to consider.
 
-		int areaWidth = 500;
+		int areaWidth = 300;
 		int startX = (frame.cols - areaWidth) / 2;
-		auto area = Rect{startX, 150, areaWidth, 300};
+		auto area = Rect{startX, 220, areaWidth, 200};
 
 		int predictorWidth = area.width / 2 / nPredictorCols;
 		int predictorHeight = area.height / nPredictorRows;
@@ -108,19 +109,22 @@ int main(int, char**)
         auto lPred = Rect(areaMiddleLine - (j + 1) * predictorWidth, area.y + k * predictorHeight, predictorWidth, predictorHeight);
         auto rPred = Rect(areaMiddleLine + (j) * predictorWidth, area.y + k * predictorHeight, predictorWidth, predictorHeight);
 
-        predictorDeltaMeans.push_back(mean(Mat(edges, lPred))[0] - mean(Mat(edges,rPred))[0]);
-
-        rectangle(edges, lPred, Scalar(100, 100, 100));
+		auto grayMeanL = mean(Mat(edges, lPred))[0];
+		auto grayMeanR = mean(Mat(edges, rPred))[0];
+        predictorDeltaMeans.push_back((grayMeanL - grayMeanR) / 255);
+		putText(edges, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2, lPred.y + lPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
+		putText(edges, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2, rPred.y + rPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
+		rectangle(edges, lPred, Scalar(100, 100, 100));
         rectangle(edges, rPred, Scalar(100, 100, 100));
 		  }
 		}
 
-    cvtColor(edges, frame, CV_GRAY2RGB);
+    cvtColor(edges, frame, COLOR_GRAY2RGB);
 
     line(frame, {areaMiddleLine, area.tl().y}, {areaMiddleLine, area.br().y}, Scalar(50, 50, 255));
 
 
-		imshow("visual", frame);
+		imshow("robot view", frame);
 		
 		int8_t deltaSensor = 0;
 		Ret = LS.Read(&deltaSensor, sizeof(deltaSensor));

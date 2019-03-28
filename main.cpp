@@ -86,15 +86,10 @@ int main(int, char**)
 	
 	for (;;)
 	{
-		//cap.set(CAP_PROP_GAIN, yeet);		
-		//1) get new image
 		Mat frame;
 		cap >> frame; // get a new frame from camera
 		cvtColor(frame, edges, COLOR_BGR2GRAY);
-		//GaussianBlur(edges, edges, Size(7,7), 1.5, 1.5);
-		//Canny(edges, edges, 0, 30, 3);
 
-		//Draw rectangles 
 		rectangle(edges, Point(x_1, y_1), Point(x_1 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
 		rectangle(edges, Point(x_2, y_1), Point(x_2 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
 		rectangle(edges, Point(x_3, y_1), Point(x_3 + xboxsize, yboxsize), Scalar(100, 0, 255), 2, 8);
@@ -113,7 +108,6 @@ int main(int, char**)
 		float predictor2 = value2[0] - value3[0];
 
 		double predictors[nPredictors] = { predictor1, predictor2};
-		//cout << "value 1: " << value1[0] << "       value 2:  " << value2[0] << "       value 3:  " << value3[0] << "       value 4:  " << value4[0] << endl;
 		imshow("edges", edges);
 		
 		int8_t deltaSensor = 0;
@@ -126,17 +120,6 @@ int main(int, char**)
 		}
 
 		if (waitKey(20) == ESC_key) break;
-		//cout << frame.at<float>(20, 20) << endl;
-		//auto intensity = frame.at<Vec3b>(100, 100);
-		//cout << (int)intensity[0] << " " << (int)intensity[1] << " "  << (int)intensity[2] << endl;
-		//extract the leadError from it or read the error from the dedicated error sensors
-		//DoBackprop of the leadError
-		//get differenceGreyValues as an array
-		//pass the above array to the Net as a pointer
-		//DoForward propagation
-		//getPredictiveAction
-		//pass the action to Robot
 	}
-    // the camera will be deinitialized automatically in VideoCapture destructor
     return 0;
 }

@@ -46,8 +46,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> predictor
 	net.updateWeights();
 	//need to do weight change first
 	net.saveWeights();
-	double icoOutput = net.getOutput(0);
-	double error2 = (error + icoOutput) * gain;
+	double error2 = (error + net.getOutput(0)) * gain;
 	std::cout << "error out is: " << error2 << std::endl;
 	return (int16_t)(error2 * 1);
 }

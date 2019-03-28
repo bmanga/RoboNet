@@ -12,19 +12,19 @@ using namespace std;
 constexpr int ESC_key = 27;
 
 static constexpr int nLayers = 2;
-static constexpr int nInputs = 4;
-static constexpr int nPredictors = 4;
+static constexpr int nInputs = 2;
+static constexpr int nPredictors = 2;
 
-static constexpr double constantSpeed = 30;
+static constexpr double constantSpeed = 10;
 int nNeurons[nLayers] = { 2, 1 };
 Net net{ nLayers, nNeurons, nInputs };
 
 
 
-int space = 96;
+int space = 0;
 int x_1 = space;
-int y_1 = 120;
-int xboxsize = 40;
+int y_1 = 300;
+int xboxsize = 160;
 int yboxsize = y_1 + xboxsize;
 int x_2 = x_1 + xboxsize + space;
 int x_3 = 640-space-xboxsize; // 4th square
@@ -38,7 +38,7 @@ int16_t onStepCompleted(int deltaSensorData, double *predictors)
 
 
 
-	int gain = 100;
+	int gain = 50;
 
 	cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
 	net.setInputs(predictors);
@@ -109,8 +109,10 @@ int main(int, char**)
 		Scalar value2 = mean(square2);
 		Scalar value3 = mean(square3);
 		Scalar value4 = mean(square4);
+		float predictor1 = value1[0] - value4[0];
+		float predictor2 = value2[0] - value3[0];
 
-		double predictors[nPredictors] = { value1[0], value2[0], value3[0], value4[0] };
+		double predictors[nPredictors] = { predictor1, predictor2};
 		//cout << "value 1: " << value1[0] << "       value 2:  " << value2[0] << "       value 3:  " << value3[0] << "       value 4:  " << value4[0] << endl;
 		imshow("edges", edges);
 		

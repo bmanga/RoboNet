@@ -7,5 +7,5 @@ add_subdirectory(clBP)
 
 find_package(OpenCV REQUIRED)
 
-add_executable(robonet main.cpp)
+add_executable(robonet main.cpp serialib.cpp)
 target_link_libraries(robonet clBP ${OpenCV_LIBS})

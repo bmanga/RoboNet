@@ -20,8 +20,6 @@ This is a licence-free software, it can be used by anyone who try to build a bet
 #define SERIALIB_H
 
 
-// Used for TimeOut operations
-#include <sys/time.h>
 // Include for windows
 #if defined (_WIN32) || defined( _WIN64)
     // Accessing to the serial port under Windows
@@ -30,6 +28,8 @@ This is a licence-free software, it can be used by anyone who try to build a bet
 
 // Include for Linux
 #ifdef __linux__
+	// Used for TimeOut operations
+	#include <sys/time.h>
     #include <stdlib.h>
     #include <sys/types.h>
     #include <sys/shm.h>

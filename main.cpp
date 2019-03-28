@@ -11,8 +11,7 @@ using namespace cv;
 using namespace std;
 constexpr int ESC_key = 27;
 
-static constexpr int nLayers = 2;
-static constexpr int nInputs = 2;
+static constexpr int nLayers = 3;
 
 static constexpr int nPredictorCols = 3;
 static constexpr int nPredictorRows = 4;
@@ -20,9 +19,9 @@ static constexpr int nPredictors = nPredictorCols * nPredictorRows;
 
 static constexpr double constantSpeed = 10;
 
-int nNeurons[nLayers] = { nPredictors, 1 };
+int nNeurons[nLayers] = { nPredictors, 5, 1 };
 
-Net net{ nLayers, nNeurons, nInputs };
+Net net{ nLayers, nNeurons, nPredictors };
 
 
 

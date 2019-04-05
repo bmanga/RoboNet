@@ -54,7 +54,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predicto
 #endif
 
 #ifdef __linux__
-#define         DEVICE_PORT             "/dev/ttyS0"                         // ttyS0 for linux
+#define         DEVICE_PORT             "/dev/ttyUSB0"                         // ttyS0 for linux
 
 #endif
 

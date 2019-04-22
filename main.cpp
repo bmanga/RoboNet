@@ -1,10 +1,14 @@
-#include "clbp/Neuron.h"
-#include "clbp/Layer.h"
-#include "clbp/Net.h"
+//#include "clbp/Neuron.h"
+//#include "clbp/Layer.h"
+//#include "clbp/Net.h"
 #include "opencv2/opencv.hpp"
 #include "serialib.h"
 
 #include <iostream>
+#include <string>
+#include <utilapiset.h>
+
+#include "neural.h"
 
 using namespace cv;
 using namespace std;
@@ -20,33 +24,36 @@ static constexpr double constantSpeed = 10;
 
 int nNeurons[nLayers] = { nPredictors, 5, 1 };
 
-Net net{ nLayers, nNeurons, nPredictors };
+//Net net{ nLayers, nNeurons, nPredictors };
+
+//
 
 
-
-int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predictorDeltas)
+int16_t onStepCompleted(int deltaSensorData, std::vector<double> &predictorDeltas)
 {
   double errorGain = 5;
   double error = errorGain * deltaSensorData;
 
-
-
-  int gain = 30;
+  int gain = 60;
 
   //cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
-  net.setInputs(predictorDeltas.data());
-  double learningRate = 0.01;
-  net.setLearningRate(learningRate);
-  net.propInputs();
-  double leadError = error;
-  net.setError(leadError);
-  net.propError();
-  net.updateWeights();
+  //net.setInputs(predictorDeltas.data());
+  //double learningRate = 0.01;
+  //net.setLearningRate(learningRate);
+  //net.propInputs();
+
+
+  //net.setError(-leadError);
+  //net.propError();
+  //net.updateWeights();
   //need to do weight change first
-  net.saveWeights();
-  double error2 = (error / 2 + net.getOutput(0)) * gain;
-  std::cout << "neural output is: " << net.getOutput(0) << std::endl;
+  //net.saveWeights();
+
+  double result = run_nn(predictorDeltas, error);
+  double error2 = (error / 4 + result) * gain;
+  std::cout << "neural output is: " << result << std::endl;
   return (int16_t)(error2 * 0.5);
+
 }
 
 #if defined (_WIN32) || defined( _WIN64)
@@ -61,7 +68,8 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predicto
 
 int main(int, char**)
 {
-  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
+  initialize_net();
+//  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);
   if (Ret != 1) {                                                           // If an error occured...
@@ -70,12 +78,13 @@ int main(int, char**)
   }
   printf("Serial port opened successfully !\n");
   VideoCapture cap(1); // open the default camera
-  cap.set(CAP_PROP_FPS, 30);
+  //cap.set(CAP_PROP_FPS, 30);
   if (!cap.isOpened())  // check if we succeeded
     return -1;
 
   Mat edges;
   namedWindow("edges", 1);
+
 
 
   std::vector<double> predictorDeltaMeans;
@@ -128,8 +137,10 @@ int main(int, char**)
     int8_t deltaSensor = 0;
     Ret = LS.Read(&deltaSensor, sizeof(deltaSensor));
 
+
     if (Ret > 0) {
       cout << "delta sensor is " << (int)deltaSensor << std::endl;
+      if (deltaSensor != 0) Beep(750, 500);
       int16_t error = onStepCompleted(deltaSensor, predictorDeltaMeans);
       //int16_t error = deltaSensor * 50;
 

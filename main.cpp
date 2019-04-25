@@ -4,6 +4,9 @@
 #include "opencv2/opencv.hpp"
 #include "serialib.h"
 
+
+#include <boost/circular_buffer.hpp>
+
 #include <iostream>
 #include <fstream>
 
@@ -24,13 +27,14 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 Net net{ nLayers, nNeurons, nPredictors };
 
 
+boost::circular_buffer<std::vector<double>> old_inputs(5);
 
 int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predictorDeltas)
 {
   double errorGain = 5;
   double error = errorGain * deltaSensorData;
 
-
+  old_inputs.push_back(predictorDeltas);
 
   int gain = 50;
 
@@ -39,14 +43,21 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predicto
   double learningRate = 0.01;
   net.setLearningRate(learningRate);
   net.propInputs();
-  double leadError = error;
-  net.setError(leadError);
-  net.propError();
-  net.updateWeights();
+
+  auto net_out = net.getOutput(0);
+
+  if (old_inputs.full()) {
+    double leadError = error;
+    net.setInputs(old_inputs.front().data());
+    net.propInputs();
+    net.setError(leadError);
+    net.propError();
+    net.updateWeights();
+  }
   //need to do weight change first
-  net.saveWeights();
-  double error2 = (error / 2 + net.getOutput(0)) * gain;
-  std::cout << "neural output is: " << net.getOutput(0) << std::endl;
+  //net.saveWeights();
+  double error2 = (error / 2 + net_out) * gain;
+  std::cout << "neural output is: " << net_out << std::endl;
   return (int16_t)(error2 * 0.5);
 }
 

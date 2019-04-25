@@ -6,7 +6,8 @@
 
 #include <iostream>
 #include <string>
-#include <utilapiset.h>
+#include <chrono>
+#include <boost/circular_buffer.hpp>
 
 #include "neural.h"
 
@@ -16,8 +17,8 @@ constexpr int ESC_key = 27;
 
 static constexpr int nLayers = 3;
 
-static constexpr int nPredictorCols = 3;
-static constexpr int nPredictorRows = 4;
+static constexpr int nPredictorCols = 6;
+static constexpr int nPredictorRows = 1;
 static constexpr int nPredictors = nPredictorCols * nPredictorRows;
 
 static constexpr double constantSpeed = 10;
@@ -29,7 +30,7 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 //
 
 
-int16_t onStepCompleted(int deltaSensorData, std::vector<double> &predictorDeltas)
+int16_t onStepCompleted(double deltaSensorData, std::vector<float> &predictorDeltas)
 {
   double errorGain = 5;
   double error = errorGain * deltaSensorData;
@@ -49,9 +50,8 @@ int16_t onStepCompleted(int deltaSensorData, std::vector<double> &predictorDelta
   //need to do weight change first
   //net.saveWeights();
 
-  double result = run_nn(predictorDeltas, error);
-  double error2 = (error / 4 + result) * gain;
-  std::cout << "neural output is: " << result << std::endl;
+  double result = run_nn(predictorDeltas, deltaSensorData);
+  double error2 = (error / 4 + result * 1.5 ) * gain;
   return (int16_t)(error2 * 0.5);
 
 }
@@ -66,6 +66,59 @@ int16_t onStepCompleted(int deltaSensorData, std::vector<double> &predictorDelta
 #endif
 
 
+double calculateErrorValue(Mat &frame, Mat &output)
+{
+  constexpr int numErrorSensors = 5;
+  int areaWidth = 400;
+  int areaHeight = 30;
+  int offsetFromBottom = 0;
+  int blackSensorThreshold = 90;
+  int startX = (frame.cols - areaWidth) / 2;
+  auto area = Rect{ startX, frame.rows - areaHeight - offsetFromBottom, areaWidth, areaHeight };
+
+  int areaMiddleLine = area.width / 2 + area.x;
+
+  int sensorWidth = area.width / 2 / numErrorSensors;
+  int sensorHeight = areaHeight;
+
+  std::array<double, numErrorSensors> sensorWeights;
+
+  // Linear weights, maybe consider exponential.
+  double increase = 1.0 / numErrorSensors;
+  sensorWeights[numErrorSensors - 1] = 1;
+  for (int j = numErrorSensors - 2; j > 0; --j) {
+    sensorWeights[j] = sensorWeights[j + 1] * 0.5;
+  }
+
+
+
+  int numTriggeredPairs = 0;
+  double error = 0;
+
+
+  for (int j = 0; j < numErrorSensors; ++j) {
+    auto lPred = Rect(areaMiddleLine - (j + 1) * sensorWidth, area.y, sensorWidth, sensorHeight);
+    auto rPred = Rect(areaMiddleLine + (j)* sensorWidth, area.y, sensorWidth, sensorHeight);
+
+    double grayMeanL = (mean(Mat(frame, lPred))[0]) < blackSensorThreshold;
+    double grayMeanR = (mean(Mat(frame, rPred))[0]) < blackSensorThreshold;
+
+    auto diff = (grayMeanR - grayMeanL);
+    numTriggeredPairs += (diff != 0);
+
+    error += diff * sensorWeights[j];
+
+
+    //predictorDeltaMeans.push_back((grayMeanL - grayMeanR) / 255);
+    putText(output, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2, lPred.y + lPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 100, 100 });
+    putText(output, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2, rPred.y + rPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 100, 100 });
+    rectangle(output, lPred, Scalar(100, 100, 100));
+    rectangle(output, rPred, Scalar(100, 100, 100));
+  }
+
+  return numTriggeredPairs ? error / numTriggeredPairs : 0;
+}
+
 int main(int, char**)
 {
   initialize_net();
@@ -79,6 +132,7 @@ int main(int, char**)
   printf("Serial port opened successfully !\n");
   VideoCapture cap(1); // open the default camera
   //cap.set(CAP_PROP_FPS, 30);
+  cap.set(CAP_PROP_FOURCC, CV_FOURCC('M', 'J', 'P', 'G'));
   if (!cap.isOpened())  // check if we succeeded
     return -1;
 
@@ -87,7 +141,7 @@ int main(int, char**)
 
 
 
-  std::vector<double> predictorDeltaMeans;
+  std::vector<float> predictorDeltaMeans;
   predictorDeltaMeans.reserve(nPredictorCols * nPredictorRows);
 
   for (;;)
@@ -98,11 +152,17 @@ int main(int, char**)
     cap >> frame; // get a new frame from camera
     cvtColor(frame, edges, COLOR_BGR2GRAY);
 
+
+    //std::cout << "calculated error from image is: " << err << "\n";
+
+
     // Define the rect area that we want to consider.
 
-    int areaWidth = 300;
+    int areaWidth = 500;
+    int areaHeight = 30;
+    int offsetFromTop = 170;
     int startX = (frame.cols - areaWidth) / 2;
-    auto area = Rect{ startX, 220, areaWidth, 200 };
+    auto area = Rect{ startX, offsetFromTop, areaWidth, areaHeight };
 
     int predictorWidth = area.width / 2 / nPredictorCols;
     int predictorHeight = area.height / nPredictorRows;
@@ -120,32 +180,33 @@ int main(int, char**)
         auto grayMeanL = mean(Mat(edges, lPred))[0];
         auto grayMeanR = mean(Mat(edges, rPred))[0];
         predictorDeltaMeans.push_back((grayMeanL - grayMeanR) / 255);
-        putText(edges, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2, lPred.y + lPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
-        putText(edges, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2, rPred.y + rPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
-        rectangle(edges, lPred, Scalar(100, 100, 100));
-        rectangle(edges, rPred, Scalar(100, 100, 100));
+        putText(frame, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2, lPred.y + lPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
+        putText(frame, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2, rPred.y + rPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
+        rectangle(frame, lPred, Scalar(100, 100, 100));
+        rectangle(frame, rPred, Scalar(100, 100, 100));
       }
     }
 
-    cvtColor(edges, frame, COLOR_GRAY2RGB);
+    //cvtColor(edges, frame, COLOR_GRAY2RGB);
 
     line(frame, { areaMiddleLine, area.tl().y }, { areaMiddleLine, area.br().y }, Scalar(50, 50, 255));
 
-
+    double err = calculateErrorValue(edges, frame);
     imshow("robot view", frame);
 
-    int8_t deltaSensor = 0;
-    Ret = LS.Read(&deltaSensor, sizeof(deltaSensor));
+    int8_t ping = 0;
+    Ret = LS.Read(&ping, sizeof(ping));
 
 
     if (Ret > 0) {
-      cout << "delta sensor is " << (int)deltaSensor << std::endl;
-      if (deltaSensor != 0) Beep(750, 500);
-      int16_t error = onStepCompleted(deltaSensor, predictorDeltaMeans);
+      //cout << "delta sensor is " << (int)deltaSensor << std::endl;
+      //cout << "image sensor is " << err << std::endl;
+      //if (deltaSensor != 0) system("mpv /usr/share/sounds/freedesktop/stereo/bell.oga");
+
+      int16_t error = onStepCompleted(err, predictorDeltaMeans);
       //int16_t error = deltaSensor * 50;
 
       Ret = LS.Write(&error, sizeof(error));
-      std::cout << "error out is: " << error << std::endl;
     }
 
     if (waitKey(20) == ESC_key) break;

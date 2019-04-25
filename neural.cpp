@@ -1,4 +1,5 @@
 #include "neural.h"
+#include "clbp/Net.h"
 
 #include <vector>
 #include <string>
@@ -118,4 +119,53 @@ double run_nn(std::vector<float>& in, double error)
   optimizer->step();
 
   return result - error_center;
+}
+
+std::unique_ptr<Net> samanet;
+void initialize_samanet()
+{
+  int nNeurons[] = {6, 12, 1};
+  samanet = std::make_unique<Net>(3, nNeurons, 6);
+  samanet->initWeights(Neuron::W_ONES, Neuron::B_NONE);
+
+  samanet->setLearningRate(0.01);
+
+}
+
+boost::circular_buffer<std::vector<float>> old_inputs(25);
+
+double run_samanet(std::vector<float> &predictorDeltas, double error)
+{
+  error /= 1.3;
+
+  old_inputs.push_back(predictorDeltas);
+
+  // Need a pointer to double.
+  std::vector<double> predictorDeltasDouble;
+  predictorDeltasDouble.resize(predictorDeltas.size());
+
+  std::copy(predictorDeltas.begin(), predictorDeltas.end(), predictorDeltasDouble.begin());
+
+  samanet->setInputs(predictorDeltasDouble.data());
+
+  samanet->propInputs();
+
+  auto net_out = samanet->getOutput(0);
+
+  if (old_inputs.full()) {
+    /* FIXME: I am not sure why the error is the following. It is in Sama's original
+     algorithm, but I can't see how it relates to the output of the network. */
+    double leadError = 5 * error;
+
+    std::copy(old_inputs.front().begin(), old_inputs.front().end(), predictorDeltasDouble.begin());
+    samanet->setInputs(predictorDeltasDouble.data());
+    samanet->propInputs();
+    samanet->setError(-leadError);
+    samanet->propError();
+    samanet->updateWeights();
+  }
+  //need to do weight change first
+  //net.saveWeights();
+
+  return net_out;
 }

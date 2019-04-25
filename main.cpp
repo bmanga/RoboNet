@@ -50,7 +50,7 @@ int16_t onStepCompleted(double deltaSensorData, std::vector<float> &predictorDel
   //need to do weight change first
   //net.saveWeights();
 
-  double result = run_nn(predictorDeltas, deltaSensorData);
+  double result = run_samanet(predictorDeltas, deltaSensorData);
   double error2 = (error / 4 + result * 2.5 ) * gain;
   return (int16_t)(error2 * 0.5);
 
@@ -121,7 +121,7 @@ double calculateErrorValue(Mat &frame, Mat &output)
 
 int main(int, char**)
 {
-  initialize_net();
+  initialize_samanet();
 //  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);
@@ -130,7 +130,7 @@ int main(int, char**)
     return Ret;                                                         // ... quit the application
   }
   printf("Serial port opened successfully !\n");
-  VideoCapture cap(1); // open the default camera
+  VideoCapture cap(0); // open the default camera
   //cap.set(CAP_PROP_FPS, 30);
   cap.set(CAP_PROP_FOURCC, CV_FOURCC('M', 'J', 'P', 'G'));
   if (!cap.isOpened())  // check if we succeeded

@@ -51,7 +51,7 @@ int16_t onStepCompleted(double deltaSensorData, std::vector<float> &predictorDel
   //net.saveWeights();
 
   double result = run_nn(predictorDeltas, deltaSensorData);
-  double error2 = (error / 4 + result * 1.5 ) * gain;
+  double error2 = (error / 4 + result * 2.5 ) * gain;
   return (int16_t)(error2 * 0.5);
 
 }
@@ -72,7 +72,7 @@ double calculateErrorValue(Mat &frame, Mat &output)
   int areaWidth = 400;
   int areaHeight = 30;
   int offsetFromBottom = 0;
-  int blackSensorThreshold = 90;
+  int whiteSensorThreshold = 210;
   int startX = (frame.cols - areaWidth) / 2;
   auto area = Rect{ startX, frame.rows - areaHeight - offsetFromBottom, areaWidth, areaHeight };
 
@@ -100,8 +100,8 @@ double calculateErrorValue(Mat &frame, Mat &output)
     auto lPred = Rect(areaMiddleLine - (j + 1) * sensorWidth, area.y, sensorWidth, sensorHeight);
     auto rPred = Rect(areaMiddleLine + (j)* sensorWidth, area.y, sensorWidth, sensorHeight);
 
-    double grayMeanL = (mean(Mat(frame, lPred))[0]) < blackSensorThreshold;
-    double grayMeanR = (mean(Mat(frame, rPred))[0]) < blackSensorThreshold;
+    double grayMeanL = (mean(Mat(frame, lPred))[0]) > whiteSensorThreshold;
+    double grayMeanR = (mean(Mat(frame, rPred))[0]) > whiteSensorThreshold;
 
     auto diff = (grayMeanR - grayMeanL);
     numTriggeredPairs += (diff != 0);
@@ -160,7 +160,7 @@ int main(int, char**)
 
     int areaWidth = 500;
     int areaHeight = 30;
-    int offsetFromTop = 170;
+    int offsetFromTop = 200;
     int startX = (frame.cols - areaWidth) / 2;
     auto area = Rect{ startX, offsetFromTop, areaWidth, areaHeight };
 

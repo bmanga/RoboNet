@@ -52,7 +52,7 @@ struct RoboNet : public torch::nn::Module
 std::unique_ptr<RoboNet> net;
 std::unique_ptr<torch::optim::Adam> optimizer;
 
-boost::circular_buffer<std::vector<float>> previous_nn_outs(36);
+boost::circular_buffer<std::vector<float>> previous_nn_outs(25);
 
 void initialize_net()
 {

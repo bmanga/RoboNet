@@ -5,6 +5,7 @@
 #include "serialib.h"
 
 #include <iostream>
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -31,7 +32,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predicto
 
 
 
-  int gain = 30;
+  int gain = 50;
 
   //cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
   net.setInputs(predictorDeltas.data());
@@ -61,6 +62,7 @@ int16_t onStepCompleted(int deltaSensorData, const std::vector<double> &predicto
 
 int main(int, char**)
 {
+  ofstream myfile;
   net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);
@@ -93,7 +95,7 @@ int main(int, char**)
 
     int areaWidth = 300;
     int startX = (frame.cols - areaWidth) / 2;
-    auto area = Rect{ startX, 220, areaWidth, 200 };
+    auto area = Rect{ startX, 120, areaWidth, 200 };
 
     int predictorWidth = area.width / 2 / nPredictorCols;
     int predictorHeight = area.height / nPredictorRows;
@@ -127,14 +129,18 @@ int main(int, char**)
 
     int8_t deltaSensor = 0;
     Ret = LS.Read(&deltaSensor, sizeof(deltaSensor));
-
+   
     if (Ret > 0) {
-      cout << "delta sensor is " << (int)deltaSensor << std::endl;
+      //cout << "delta sensor is " << (int)deltaSensor << std::endl;
       int16_t error = onStepCompleted(deltaSensor, predictorDeltaMeans);
       //int16_t error = deltaSensor * 50;
 
       Ret = LS.Write(&error, sizeof(error));
+      int test = deltaSensor;
       std::cout << "error out is: " << error << std::endl;
+      myfile.open("errors.txt", ios::out |ios::app);
+      myfile << test << "\n";
+      myfile.close();
     }
 
     if (waitKey(20) == ESC_key) break;

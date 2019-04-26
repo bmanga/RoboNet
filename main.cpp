@@ -10,6 +10,8 @@
 #include <boost/circular_buffer.hpp>
 
 #include "neural.h"
+#define CVUI_IMPLEMENTATION
+#include "cvui.h"
 
 using namespace cv;
 using namespace std;
@@ -29,8 +31,10 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 
 //
 
+double errorMult = 0.25;
+double nnMult = 2.5;
 
-int16_t onStepCompleted(double deltaSensorData, std::vector<float> &predictorDeltas)
+int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<float> &predictorDeltas)
 {
   double errorGain = 5;
   double error = errorGain * deltaSensorData;
@@ -50,8 +54,14 @@ int16_t onStepCompleted(double deltaSensorData, std::vector<float> &predictorDel
   //need to do weight change first
   //net.saveWeights();
 
-  double result = run_samanet(predictorDeltas, deltaSensorData);
-  double error2 = (error / 4 + result * 2.5 ) * gain;
+  cvui::text(statFrame, 10, 120, "Sensor Error Multiplier: ");
+  cvui::trackbar(statFrame, 180, 100, 220, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
+
+  cvui::text(statFrame, 10, 170, "Net Output Multiplier: ");
+  cvui::trackbar(statFrame, 180, 150, 220, &nnMult, (double)0.0, (double)5.0, 1, "%.2Lf", 0, 0.05);
+
+  double result = run_nn(statFrame, predictorDeltas, deltaSensorData);
+  double error2 = (error * errorMult + result * nnMult ) * gain;
   return (int16_t)(error2 * 0.5);
 
 }
@@ -119,9 +129,14 @@ double calculateErrorValue(Mat &frame, Mat &output)
   return numTriggeredPairs ? error / numTriggeredPairs : 0;
 }
 
+#define STAT_WINDOW "statistics & options"
 int main(int, char**)
 {
-  initialize_samanet();
+  cv::namedWindow("robot view");
+  cvui::init(STAT_WINDOW);
+
+  auto statFrame = cv::Mat(200, 500, CV_8UC3);
+  initialize_net();
 //  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);
@@ -130,14 +145,15 @@ int main(int, char**)
     return Ret;                                                         // ... quit the application
   }
   printf("Serial port opened successfully !\n");
-  VideoCapture cap(0); // open the default camera
+  VideoCapture cap(1); // open the default camera
   //cap.set(CAP_PROP_FPS, 30);
   cap.set(CAP_PROP_FOURCC, CV_FOURCC('M', 'J', 'P', 'G'));
   if (!cap.isOpened())  // check if we succeeded
     return -1;
 
+
   Mat edges;
-  namedWindow("edges", 1);
+  //namedWindow("edges", 1);
 
 
 
@@ -146,6 +162,7 @@ int main(int, char**)
 
   for (;;)
   {
+    statFrame = cv::Scalar(49, 52, 49);
     predictorDeltaMeans.clear();
 
     Mat frame;
@@ -153,12 +170,15 @@ int main(int, char**)
     cvtColor(frame, edges, COLOR_BGR2GRAY);
 
 
+
+    cvui::window(statFrame, 100, 200, 200, 100, "Here");
+
     //std::cout << "calculated error from image is: " << err << "\n";
 
 
     // Define the rect area that we want to consider.
 
-    int areaWidth = 500;
+    int areaWidth = 400; //500;
     int areaHeight = 30;
     int offsetFromTop = 200;
     int startX = (frame.cols - areaWidth) / 2;
@@ -170,6 +190,8 @@ int main(int, char**)
     rectangle(edges, area, Scalar(122, 144, 255));
 
     int areaMiddleLine = area.width / 2 + area.x;
+
+
 
 
     for (int k = 0; k < nPredictorRows; ++k) {
@@ -203,12 +225,17 @@ int main(int, char**)
       //cout << "image sensor is " << err << std::endl;
       //if (deltaSensor != 0) system("mpv /usr/share/sounds/freedesktop/stereo/bell.oga");
 
-      int16_t error = onStepCompleted(err, predictorDeltaMeans);
+
+      int16_t error = onStepCompleted(statFrame, err, predictorDeltaMeans);
       //int16_t error = deltaSensor * 50;
 
       Ret = LS.Write(&error, sizeof(error));
     }
 
+    cvui::update();
+
+    // Show everything on the screen
+    cv::imshow(STAT_WINDOW, statFrame);
     if (waitKey(20) == ESC_key) break;
   }
   return 0;

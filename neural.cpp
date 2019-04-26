@@ -7,6 +7,8 @@
 #include <torch/torch.h>
 #include <memory>
 #include <boost/circular_buffer.hpp>
+#include <opencv2/opencv.hpp>
+#include "cvui.h"
 
 struct RoboNet : public torch::nn::Module
 {
@@ -65,7 +67,7 @@ void initialize_net()
 }
 
 // Error in range -1, 1. [-1, 0] wants the robot to turn left.
-double run_nn(std::vector<float>& in, double error)
+double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error)
 {
   float error_center = 0.5;
   error = error / 1.3;
@@ -97,18 +99,18 @@ double run_nn(std::vector<float>& in, double error)
   float res = error_center + error;
 
   //std::cout << "dfsfs is " << res << " " << result << std::endl;
+  cvui::printf(statFrame, 10, 10, "Old tensor output : %f", old_output.data<float>()[0]);
+  cvui::printf(statFrame, 10, 30, "Current error :     %f", res);
 
 
 
   torch::Tensor errorT = torch::from_blob(&res, 1, torch::kFloat32);
 
-  std::cout << "- tensors -: ";
-  std::cout << output.data<float>()[0] << " " << old_output.data<float>()[0] << " " << errorT.data<float>()[0] << std::endl;
 
   auto loss = torch::l1_loss(old_output, errorT);
   //auto loss = old_output + errorT;
 
-  loss.data<float>()[0] = res;
+  //loss.data<float>()[0] = res;
 
   if (loss.item().toFloat() == 0) return result - error_center;
 
@@ -134,7 +136,7 @@ void initialize_samanet()
 
 boost::circular_buffer<std::vector<float>> old_inputs(25);
 
-double run_samanet(std::vector<float> &predictorDeltas, double error)
+double run_samanet(cv::Mat &statFrame, std::vector<float> &predictorDeltas, double error)
 {
   error /= 1.3;
 
@@ -154,7 +156,7 @@ double run_samanet(std::vector<float> &predictorDeltas, double error)
 
   if (old_inputs.full()) {
     /* FIXME: I am not sure why the error is the following. It is in Sama's original
-     algorithm, but I can't see how it relates to the output of the network. */
+     algorithm, but I can't see how it doesn't saturate a sigmoid */
     double leadError = 5 * error;
 
     std::copy(old_inputs.front().begin(), old_inputs.front().end(), predictorDeltasDouble.begin());

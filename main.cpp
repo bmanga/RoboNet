@@ -7,6 +7,9 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <fstream>
+#include <ctime>
+#include <cstdlib>
 #include <boost/circular_buffer.hpp>
 
 #include "neural.h"
@@ -31,15 +34,19 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 
 //
 
-double errorMult = 0.25;
-double nnMult = 2.5;
+double errorMult = 1.0;
+double nnMult = 0.0;
 
 int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<float> &predictorDeltas)
 {
+  std::ofstream out ("errors.txt", ios::app);
+  out << deltaSensorData << std::endl;
+
+
   double errorGain = 5;
   double error = errorGain * deltaSensorData;
 
-  int gain = 60;
+  int gain = 15;
 
   //cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
   //net.setInputs(predictorDeltas.data());
@@ -62,8 +69,9 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
   cvui::text(statFrame, 10, 170, "Net Output Multiplier: ");
   cvui::trackbar(statFrame, 180, 150, 220, &nnMult, (double)0.0, (double)5.0, 1, "%.2Lf", 0, 0.05);
 
-  double result = run_samanet(statFrame, predictorDeltas, deltaSensorData / nnMult);
-  double error2 = (error * errorMult + result * nnMult ) * gain;
+  double result = run_samanet(statFrame, predictorDeltas, deltaSensorData / 5);
+  cvui::printf(statFrame, 10, 30, "Net output: %lf", result);
+  double error2 = (error * errorMult + result * nnMult) * gain;
   return (int16_t)(error2 * 0.5);
 
 }
@@ -99,7 +107,7 @@ double calculateErrorValue(Mat &frame, Mat &output)
   double increase = 1.0 / numErrorSensors;
   sensorWeights[numErrorSensors - 1] = 1;
   for (int j = numErrorSensors - 2; j > 0; --j) {
-    sensorWeights[j] = sensorWeights[j + 1] * 0.5;
+    sensorWeights[j] = sensorWeights[j + 1] * 0.65;
   }
 
 
@@ -134,6 +142,7 @@ double calculateErrorValue(Mat &frame, Mat &output)
 #define STAT_WINDOW "statistics & options"
 int main(int, char**)
 {
+  srand(0);
   cv::namedWindow("robot view");
   cvui::init(STAT_WINDOW);
 
@@ -148,7 +157,7 @@ int main(int, char**)
   }
   printf("Serial port opened successfully !\n");
   VideoCapture cap(1); // open the default camera
-  //cap.set(CAP_PROP_FPS, 30);
+  //cap.set(CAP_PROP_FPS, 10);
   cap.set(CAP_PROP_FOURCC, CV_FOURCC('M', 'J', 'P', 'G'));
   if (!cap.isOpened())  // check if we succeeded
     return -1;
@@ -192,8 +201,6 @@ int main(int, char**)
     rectangle(edges, area, Scalar(122, 144, 255));
 
     int areaMiddleLine = area.width / 2 + area.x;
-
-
 
 
     for (int k = 0; k < nPredictorRows; ++k) {

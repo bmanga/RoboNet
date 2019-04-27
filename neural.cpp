@@ -158,7 +158,7 @@ void initialize_samanet(int numInputLayers, bool useFilters, float sampleRate)
   int nNeurons[] = {numInputLayers, 12, 1};
   samanet = std::make_unique<Net>(3, nNeurons, numInputLayers);
   samanet->initWeights(Neuron::W_RANDOM, Neuron::B_NONE);
-  samanet->setLearningRate(0.01);
+  samanet->setLearningRate(0.1);
 
   if (useFilters)
     initialize_filters(numInputLayers, sampleRate);
@@ -183,11 +183,11 @@ double run_samanet(cv::Mat &statFrame, std::vector<float> &predictorDeltas, doub
     }
     samanet->setInputs(networkInputs.data());
     samanet->propInputs();
-    samanet->setError(error);
+    samanet->setError(-error);
     samanet->propError();
     samanet->updateWeights();
-    samanet->saveWeights();
-    samanet->getWeightDistance();
+    //samanet->saveWeights();
+    //samanet->getWeightDistance();
     return samanet->getOutput(0);
   }
   throw 1;

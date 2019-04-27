@@ -20,7 +20,7 @@ constexpr int ESC_key = 27;
 static constexpr int nLayers = 3;
 
 static constexpr int nPredictorCols = 6;
-static constexpr int nPredictorRows = 1;
+static constexpr int nPredictorRows = 4;
 static constexpr int nPredictors = nPredictorCols * nPredictorRows;
 
 static constexpr double constantSpeed = 10;
@@ -54,13 +54,15 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
   //need to do weight change first
   //net.saveWeights();
 
+  cvui::printf(statFrame, 10, 10, "Error: %lf", deltaSensorData);
+
   cvui::text(statFrame, 10, 120, "Sensor Error Multiplier: ");
   cvui::trackbar(statFrame, 180, 100, 220, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
 
   cvui::text(statFrame, 10, 170, "Net Output Multiplier: ");
   cvui::trackbar(statFrame, 180, 150, 220, &nnMult, (double)0.0, (double)5.0, 1, "%.2Lf", 0, 0.05);
 
-  double result = run_nn(statFrame, predictorDeltas, deltaSensorData);
+  double result = run_samanet(statFrame, predictorDeltas, deltaSensorData / nnMult);
   double error2 = (error * errorMult + result * nnMult ) * gain;
   return (int16_t)(error2 * 0.5);
 
@@ -82,7 +84,7 @@ double calculateErrorValue(Mat &frame, Mat &output)
   int areaWidth = 400;
   int areaHeight = 30;
   int offsetFromBottom = 0;
-  int whiteSensorThreshold = 210;
+  int whiteSensorThreshold = 190;
   int startX = (frame.cols - areaWidth) / 2;
   auto area = Rect{ startX, frame.rows - areaHeight - offsetFromBottom, areaWidth, areaHeight };
 
@@ -136,7 +138,7 @@ int main(int, char**)
   cvui::init(STAT_WINDOW);
 
   auto statFrame = cv::Mat(200, 500, CV_8UC3);
-  initialize_net();
+  initialize_samanet(nPredictors, true);
 //  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);
@@ -179,8 +181,8 @@ int main(int, char**)
     // Define the rect area that we want to consider.
 
     int areaWidth = 400; //500;
-    int areaHeight = 30;
-    int offsetFromTop = 200;
+    int areaHeight = 100;
+    int offsetFromTop = 250;
     int startX = (frame.cols - areaWidth) / 2;
     auto area = Rect{ startX, offsetFromTop, areaWidth, areaHeight };
 

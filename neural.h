@@ -7,5 +7,5 @@ class Mat;
 void initialize_net();
 double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error);
 
-void initialize_samanet();
-double run_samanet(std::vector<float>& in, double error);
+void initialize_samanet(int numInputLayers, bool useFilters = false, float sampleRate = 30.f);
+double run_samanet(cv::Mat &statFrame, std::vector<float>& in, double error);

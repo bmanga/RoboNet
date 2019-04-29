@@ -37,10 +37,15 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 double errorMult = 1.0;
 double nnMult = 0.0;
 
+std::ofstream errorsfs ("errors.txt");
+std::ofstream netoutfs ("netout.txt");
+std::ofstream finalfs ("final.txt");
+
+
+
 int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<float> &predictorDeltas)
 {
-  std::ofstream out ("errors.txt", ios::app);
-  out << deltaSensorData << std::endl;
+  errorsfs << deltaSensorData << std::endl;
 
 
   double errorGain = 5;
@@ -71,6 +76,7 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
 
   double result = run_samanet(statFrame, predictorDeltas, deltaSensorData / 5);
   cvui::printf(statFrame, 10, 30, "Net output: %lf", result);
+  netoutfs << result << "\n";
   double error2 = (error * errorMult + result * nnMult) * gain;
   return (int16_t)(error2 * 0.5);
 
@@ -130,10 +136,10 @@ double calculateErrorValue(Mat &frame, Mat &output)
 
 
     //predictorDeltaMeans.push_back((grayMeanL - grayMeanR) / 255);
-    putText(output, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2, lPred.y + lPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 100, 100 });
-    putText(output, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2, rPred.y + rPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 100, 100 });
-    rectangle(output, lPred, Scalar(100, 100, 100));
-    rectangle(output, rPred, Scalar(100, 100, 100));
+    putText(output, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2 - 5, lPred.y + lPred.height / 2  + 5}, FONT_HERSHEY_TRIPLEX, 0.6, { 0,0,0 });
+    putText(output, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2 - 5, rPred.y + rPred.height / 2  + 5}, FONT_HERSHEY_TRIPLEX, 0.6, { 0,0,0 });
+    rectangle(output, lPred, Scalar(50, 50, 50));
+    rectangle(output, rPred, Scalar(50, 50, 50));
   }
 
   return numTriggeredPairs ? error / numTriggeredPairs : 0;
@@ -211,10 +217,10 @@ int main(int, char**)
         auto grayMeanL = mean(Mat(edges, lPred))[0];
         auto grayMeanR = mean(Mat(edges, rPred))[0];
         predictorDeltaMeans.push_back((grayMeanL - grayMeanR) / 255);
-        putText(frame, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2, lPred.y + lPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
-        putText(frame, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2, rPred.y + rPred.height / 2 }, FONT_HERSHEY_SIMPLEX, 0.4, { 255, 255, 255 });
-        rectangle(frame, lPred, Scalar(100, 100, 100));
-        rectangle(frame, rPred, Scalar(100, 100, 100));
+        putText(frame, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2 - 13, lPred.y + lPred.height / 2 + 5}, FONT_HERSHEY_TRIPLEX, 0.4, { 0, 0, 0 });
+        putText(frame, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2 - 13, rPred.y + rPred.height / 2 + 5}, FONT_HERSHEY_TRIPLEX, 0.4, { 0, 0, 0 });
+        rectangle(frame, lPred, Scalar(50, 50, 50));
+        rectangle(frame, rPred, Scalar(50, 50, 50));
       }
     }
 
@@ -239,6 +245,7 @@ int main(int, char**)
       //int16_t error = deltaSensor * 50;
 
       Ret = LS.Write(&error, sizeof(error));
+      finalfs << error << "\n";
     }
 
     cvui::update();

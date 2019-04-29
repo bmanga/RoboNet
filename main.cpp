@@ -21,12 +21,10 @@ using namespace std;
 constexpr int ESC_key = 27;
 
 static constexpr int nLayers = 3;
-
 static constexpr int nPredictorCols = 6;
-static constexpr int nPredictorRows = 4;
+static constexpr int nPredictorRows = 8;
 static constexpr int nPredictors = nPredictorCols * nPredictorRows;
 
-static constexpr double constantSpeed = 10;
 
 int nNeurons[nLayers] = { nPredictors, 5, 1 };
 
@@ -35,18 +33,22 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 //
 
 double errorMult = 1.0;
-double nnMult = 0.0;
+double nnMult = 10.0;
 
 std::ofstream errorsfs ("errors.txt");
 std::ofstream netoutfs ("netout.txt");
 std::ofstream finalfs ("final.txt");
 
+using clk = std::chrono::system_clock;
+clk::time_point start_time;
 
+boost::circular_buffer<double> prevErrors(30 * 60);
 
 int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<float> &predictorDeltas)
 {
   errorsfs << deltaSensorData << std::endl;
 
+  prevErrors.push_back(deltaSensorData);
 
   double errorGain = 5;
   double error = errorGain * deltaSensorData;
@@ -66,17 +68,29 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
   //need to do weight change first
   //net.saveWeights();
 
-  cvui::printf(statFrame, 10, 10, "Error: %lf", deltaSensorData);
 
-  cvui::text(statFrame, 10, 120, "Sensor Error Multiplier: ");
-  cvui::trackbar(statFrame, 180, 100, 220, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
 
-  cvui::text(statFrame, 10, 170, "Net Output Multiplier: ");
-  cvui::trackbar(statFrame, 180, 150, 220, &nnMult, (double)0.0, (double)5.0, 1, "%.2Lf", 0, 0.05);
+  cvui::text(statFrame, 10, 320, "Sensor Error Multiplier: ");
+  cvui::trackbar(statFrame, 180, 300, 220, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
+
+  cvui::text(statFrame, 10, 370, "Net Output Multiplier: ");
+  cvui::trackbar(statFrame, 180, 350, 220, &nnMult, (double)0.0, (double)10.0, 1, "%.2Lf", 0, 0.05);
 
   double result = run_samanet(statFrame, predictorDeltas, deltaSensorData / 5);
+  cvui::printf(statFrame, 10, 10, "Error: %lf", deltaSensorData);
+
   cvui::printf(statFrame, 10, 30, "Net output: %lf", result);
   netoutfs << result << "\n";
+
+  {
+    std::vector<double> error_list(prevErrors.begin(), prevErrors.end());
+    cvui::sparkline(statFrame, error_list, 10, 50, 580, 200);
+    float elapsed_s = std::chrono::duration_cast<std::chrono::milliseconds>(clk::now() - start_time).count() / 1000.f;
+    float chart_start_t = prevErrors.full() ? elapsed_s - 60 : 0.f;
+    cvui::printf(statFrame, 10, 250, "%.2fs", chart_start_t);
+    cvui::printf(statFrame, 540, 250, "%.2fs", elapsed_s);
+
+  }
   double error2 = (error * errorMult + result * nnMult) * gain;
   return (int16_t)(error2 * 0.5);
 
@@ -152,7 +166,7 @@ int main(int, char**)
   cv::namedWindow("robot view");
   cvui::init(STAT_WINDOW);
 
-  auto statFrame = cv::Mat(200, 500, CV_8UC3);
+  auto statFrame = cv::Mat(400, 600, CV_8UC3);
   initialize_samanet(nPredictors, true);
 //  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
@@ -173,9 +187,10 @@ int main(int, char**)
   //namedWindow("edges", 1);
 
 
-
   std::vector<float> predictorDeltaMeans;
   predictorDeltaMeans.reserve(nPredictorCols * nPredictorRows);
+
+  start_time = std::chrono::system_clock::now();
 
   for (;;)
   {
@@ -188,7 +203,7 @@ int main(int, char**)
 
 
 
-    cvui::window(statFrame, 100, 200, 200, 100, "Here");
+    //cvui::window(statFrame, 100, 200, 200, 100, "Here");
 
     //std::cout << "calculated error from image is: " << err << "\n";
 
@@ -196,8 +211,8 @@ int main(int, char**)
     // Define the rect area that we want to consider.
 
     int areaWidth = 400; //500;
-    int areaHeight = 100;
-    int offsetFromTop = 250;
+    int areaHeight = 200;
+    int offsetFromTop = 150;
     int startX = (frame.cols - areaWidth) / 2;
     auto area = Rect{ startX, offsetFromTop, areaWidth, areaHeight };
 
@@ -225,10 +240,9 @@ int main(int, char**)
     }
 
     //cvtColor(edges, frame, COLOR_GRAY2RGB);
-
-    line(frame, { areaMiddleLine, area.tl().y }, { areaMiddleLine, area.br().y }, Scalar(50, 50, 255));
-
     double err = calculateErrorValue(edges, frame);
+
+    line(frame, { areaMiddleLine, 0 }, { areaMiddleLine, frame.rows }, Scalar(50, 50, 255));
     imshow("robot view", frame);
 
     int8_t ping = 0;

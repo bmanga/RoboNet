@@ -41,10 +41,10 @@ struct RoboNet : public torch::nn::Module
   */
   torch::Tensor forward(torch::Tensor x) {
     for (auto it = layers.begin(); it != layers.end() - 1; ++it) {
-      x = torch::relu((*it)->forward(x));
+      x = torch::sigmoid((*it)->forward(x));
     }
 
-    return torch::sigmoid(layers.back()->forward(x).sub(0.5));
+    return torch::sigmoid(layers.back()->forward(x)) - 0.5;
   }
 
 
@@ -79,28 +79,56 @@ boost::circular_buffer<std::vector<float>> previous_nn_outs(25);
 
 void initialize_net(int numInputLayers, bool useFilters, float sampleRate)
 {
+  ::useFilters = useFilters;
+  if (useFilters)
+    numInputLayers *= 10;
   //torch::manual_seed(1);
   //RoboNet net;
-  net = std::make_unique<RoboNet>(std::initializer_list<int>{numInputLayers, 12, 1});
+  net = std::make_unique<RoboNet>(std::initializer_list<int>{numInputLayers, numInputLayers, 12, 1});
   net->to(torch::kCPU);
   optimizer = std::make_unique<torch::optim::SGD>(net->parameters(), torch::optim::SGDOptions(0.01) );
+
+  if (useFilters)
+    initialize_filters(numInputLayers, sampleRate);
 }
 
 // Error in range -1, 1. [-1, 0] wants the robot to turn left.
 double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error)
 {
-  torch::Tensor input = torch::from_blob(in.data(), in.size(), torch::kFloat32);
+
+
+  std::vector<float> networkInputs;
+
+  if (useFilters) {
+    networkInputs.reserve(in.size() * 10);
+    for (int j = 0; j < in.size(); ++j) {
+      float sample = in[j];
+      for (auto &filt : lowpassFilters[j]) {
+        networkInputs.push_back(filt.filter(sample));
+      }
+    }
+  }
+  torch::Tensor input = torch::from_blob(networkInputs.data(), networkInputs.size(), torch::kFloat32);
 
   auto output = net->forward(input);
 
-  previous_nn_outs.push_back(in);
+  float out = output.data<float>()[0];
+
+  output.data<float>()[0] = -error;
+
+  output.backward();
+  optimizer->step();
+  return out;
+
+
+  //previous_nn_outs.push_back(in);
 
   // Output 0 - 0.5 turns left
   // Output 0.5 - 1 turns right
 
-  float result = output.data<float>()[0];
+  //float result = output.data<float>()[0];
 
-  if (!previous_nn_outs.full()) return result;
+  //if (!previous_nn_outs.full()) return result;
 
 
   // Circular buffer is full. We can get the earlier inputs, calculate tensor(output)
@@ -110,19 +138,19 @@ double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error)
 
 
 
-  auto old_inputs = previous_nn_outs.front();
-  auto old_in_tensor = torch::from_blob(old_inputs.data(), old_inputs.size());
-  auto old_output = net->forward(old_in_tensor).detach(); // We want to stop the graph at the output layer
+  //auto old_inputs = previous_nn_outs.front();
+  //auto old_in_tensor = torch::from_blob(old_inputs.data(), old_inputs.size());
+  //auto old_output = net->forward(old_in_tensor).detach(); // We want to stop the graph at the output layer
 
 
   //std::cout << "dfsfs is " << res << " " << result << std::endl;
-  cvui::printf(statFrame, 10, 10, "Old tensor output : %f", old_output.data<float>()[0]);
-  cvui::printf(statFrame, 10, 30, "Current error :     %f", error);
-
-
-
-  old_output.data<float>()[0] = error;
-  old_output.backward();
+//  cvui::printf(statFrame, 10, 10, "Old tensor output : %f", old_output.data<float>()[0]);
+//  cvui::printf(statFrame, 10, 30, "Current error :     %f", error);
+//
+//
+//
+//  old_output.data<float>()[0] = error;
+//  old_output.backward();
   //torch::Tensor errorT = torch::from_blob(&res, 1, torch::kFloat32);
 
 
@@ -131,16 +159,16 @@ double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error)
 
   //loss.data<float>()[0] = res;
 
-  if (error == 0) return result;
+  //if (error == 0) return result;
 
   //std::cout << "error is: " << loss.item().toFloat() << std::endl;
 
 
 
   //output.sub(leadError).backward();
-  optimizer->step();
+  //optimizer->step();
 
-  return result;
+  //return result;
 }
 
 

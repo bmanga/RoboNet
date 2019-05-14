@@ -4,7 +4,7 @@
 namespace cv {
 class Mat;
 }
-void initialize_net();
+void initialize_net(int numInputLayers, bool useFilters = false, float sampleRate = 30.f);
 double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error);
 
 void initialize_samanet(int numInputLayers, bool useFilters = false, float sampleRate = 30.f);

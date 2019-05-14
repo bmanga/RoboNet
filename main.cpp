@@ -71,15 +71,19 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
 
 
   cvui::text(statFrame, 10, 320, "Sensor Error Multiplier: ");
-  cvui::trackbar(statFrame, 180, 300, 220, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
+  cvui::trackbar(statFrame, 180, 300, 400, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
 
   cvui::text(statFrame, 10, 370, "Net Output Multiplier: ");
-  cvui::trackbar(statFrame, 180, 350, 220, &nnMult, (double)0.0, (double)10.0, 1, "%.2Lf", 0, 0.05);
+  cvui::trackbar(statFrame, 180, 350, 400, &nnMult, (double)0.0, (double)10.0, 1, "%.2Lf", 0, 0.05);
 
   double result = run_samanet(statFrame, predictorDeltas, deltaSensorData / 5);
-  cvui::printf(statFrame, 10, 10, "Error: %lf", deltaSensorData);
 
-  cvui::printf(statFrame, 10, 30, "Net output: %lf", result);
+  cvui::text(statFrame, 220, 10, "Net out:");
+  cvui::printf(statFrame, 300, 10, "%+.4lf", result);
+
+  cvui::text(statFrame, 220, 30, "Error:");
+  cvui::printf(statFrame, 300, 30, "%+.4lf", deltaSensorData);
+
   netoutfs << result << "\n";
 
   {
@@ -236,6 +240,7 @@ int main(int, char**)
         putText(frame, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2 - 13, rPred.y + rPred.height / 2 + 5}, FONT_HERSHEY_TRIPLEX, 0.4, { 0, 0, 0 });
         rectangle(frame, lPred, Scalar(50, 50, 50));
         rectangle(frame, rPred, Scalar(50, 50, 50));
+
       }
     }
 

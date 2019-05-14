@@ -1,83 +1,108 @@
 #include "neural.h"
+#include "clbp/Net.h"
+
+#include "iir1/Iir.h"
 
 #include <vector>
 #include <string>
 #include <initializer_list>
-#include <torch/torch.h>
 #include <memory>
-struct RoboNet : public torch::nn::Module
+#include <boost/circular_buffer.hpp>
+#include <opencv2/opencv.hpp>
+#include "cvui.h"
+
+
+// If we use the IIR filters to create correlation with the error:
+std::vector<std::array<Iir::Butterworth::LowPass<1>, 10>> lowpassFilters;
+bool useFilters = false;
+
+static void initialize_filters(int numInputs, float sampleRate)
 {
-  /*
-  RoboNet(std::initializer_list<int> layer_neurons)
-  {
-    layers.reserve(layer_neurons.size());
-    for (int j = 1; j < layer_neurons.size(); ++j) {
-      layers.emplace_back(*(layer_neurons.begin() + j - 1), *(layer_neurons.begin() + j));
-      register_module(std::string("layer") + std::to_string(j), layers.back());
+  // Initialize the lowpass filters
+  std::array<float, 10> bankCutoffFreqs = {1, 2, 3, 4, 5, 6, 7, 9, 11, 15};
+
+  lowpassFilters.resize(numInputs);
+  for (auto &bank : lowpassFilters) {
+    for (int j = 0; j < 10; ++j) {
+      bank[j].setup(sampleRate, bankCutoffFreqs[j]);
     }
   }
-  */
-  RoboNet() :
-    torch::nn::Module(),
-    layer1(register_module("layer1", torch::nn::Linear(12, 5))),
-    layer2(5, 1)
-  {
-    //register_module("layer1", layer1);
-    register_module("layer2", layer2);
-  }
-
-  torch::Tensor forward(torch::Tensor x) {
-    x = torch::sigmoid(layer1->forward(x));
-    x = torch::sigmoid(layer2->forward(x));
-    return x;
-  }
-  /*
-  torch::Tensor forward(torch::Tensor x) {
-    for (auto& l : layers) {
-      x = torch::sigmoid(l->forward(x));
-    }
-
-    return x;
-  }
-  */
-
-  torch::nn::Linear layer1;
-  torch::nn::Linear layer2;
-  //std::vector<torch::nn::Linear> layers;
-};
-
-
-std::unique_ptr<RoboNet> net;
-std::unique_ptr<torch::optim::Adam> optimizer;
-
-
-void initialize_net()
-{
-  RoboNet net;
-  //net = std::make_unique<RoboNet>();
-  //net->to(torch::kCPU);
-  //optimizer = std::make_unique<torch::optim::Adam>(net->parameters(), torch::optim::AdamOptions(0.001));
 }
 
+boost::circular_buffer<std::vector<float>> previous_nn_outs(25);
 
+std::unique_ptr<Net> samanet;
 
-double run_nn(std::vector<double>& in, double error)
+void initialize_samanet(int numInputLayers, bool useFilters, float sampleRate)
 {
-  auto input = torch::from_blob(in.data(), in.size(), torch::kFloat64);
+  ::useFilters = useFilters;
+  if (useFilters)
+    numInputLayers *= 10;
 
-  auto output = net->forward(input);
+  int nNeurons[] = {numInputLayers, 12, 1};
+  samanet = std::make_unique<Net>(3, nNeurons, numInputLayers);
+  samanet->initWeights(Neuron::W_RANDOM, Neuron::B_NONE);
+  samanet->setLearningRate(0.1);
 
-  double leadError = error;
+  if (useFilters)
+    initialize_filters(numInputLayers, sampleRate);
+}
 
-  std::cout << "fml\n";
-
-  double result = output.data<double>()[0];
-
-  std::cout << "fml2\n";
+boost::circular_buffer<std::vector<float>> old_inputs(25);
 
 
-  output.sub(leadError).backward();
-  optimizer->step();
+double run_samanet(cv::Mat &statFrame, std::vector<float> &predictorDeltas, double error)
+{
+  old_inputs.push_back(predictorDeltas);
 
-  return result;
+  std::vector<double> networkInputs;
+
+  if (useFilters) {
+    networkInputs.reserve(predictorDeltas.size() * 10);
+    for (int j = 0; j < predictorDeltas.size(); ++j) {
+      float sample = predictorDeltas[j];
+      for (auto &filt : lowpassFilters[j]) {
+        networkInputs.push_back(filt.filter(sample));
+      }
+    }
+    samanet->setInputs(networkInputs.data());
+    samanet->propInputs();
+    samanet->setError(-error);
+    samanet->propError();
+    samanet->updateWeights();
+    //samanet->saveWeights();
+    //samanet->getWeightDistance();
+    return samanet->getOutput(0);
+  }
+  throw 1;
+
+#if 0
+  // Need a pointer to double.
+  predictorDeltasDouble.resize(predictorDeltas.size());
+
+  std::copy(predictorDeltas.begin(), predictorDeltas.end(), predictorDeltasDouble.begin());
+
+  samanet->setInputs(predictorDeltasDouble.data());
+
+  samanet->propInputs();
+
+  auto net_out = samanet->getOutput(0);
+
+  if (old_inputs.full()) {
+    /* FIXME: I am not sure why the error is the following. It is in Sama's original
+     algorithm, but I can't see how it doesn't saturate a sigmoid */
+    double leadError = 5 * error;
+
+    std::copy(old_inputs.front().begin(), old_inputs.front().end(), predictorDeltasDouble.begin());
+    samanet->setInputs(predictorDeltasDouble.data());
+    samanet->propInputs();
+    samanet->setError(-leadError);
+    samanet->propError();
+    samanet->updateWeights();
+  }
+  //need to do weight change first
+  //net.saveWeights();
+
+  return net_out;
+#endif
 }

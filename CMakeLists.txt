@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.8.1)
 project(robonet)
 
+
 set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(clBP)
-
-find_package(Torch REQUIRED)
+add_subdirectory(iir1)
 
 find_package(OpenCV REQUIRED)
 
-set(CMAKE_CXX_STANDARD, 17)
+find_package(Boost REQUIRED)
+
 add_executable(robonet main.cpp serialib.cpp neural.cpp neural.h)
-#target_include_directories(robonet PRIVATE "C:\\Users\\Callum\\libtorch\\include\\torch\\csrc\\api\\include")
-target_include_directories(robonet PRIVATE "C:\\Users\\Callum\\libtorch\\include")
-target_link_libraries(robonet clBP ${OpenCV_LIBS} ${TORCH_LIBRARIES})
+target_link_libraries(robonet clBP ${OpenCV_LIBS} iir)
+target_include_directories(robonet PRIVATE iir1)

@@ -6,52 +6,10 @@
 #include <vector>
 #include <string>
 #include <initializer_list>
-#include <torch/torch.h>
 #include <memory>
 #include <boost/circular_buffer.hpp>
 #include <opencv2/opencv.hpp>
 #include "cvui.h"
-
-struct RoboNet : public torch::nn::Module
-{
-
-  RoboNet(std::initializer_list<int> layer_neurons)
-  {
-    layers.reserve(layer_neurons.size());
-    for (int j = 1; j < layer_neurons.size(); ++j) {
-      layers.emplace_back(*(layer_neurons.begin() + j - 1), *(layer_neurons.begin() + j));
-      register_module(std::string("layer") + std::to_string(j), layers.back());
-    }
-  }
-  /*
-  RoboNet() :
-    torch::nn::Module(),
-    layer1(48, 12),
-    layer2(12, 1)
-  {
-    register_module("layer1", layer1);
-    register_module("layer2", layer2);
-  }
-
-  torch::Tensor forward(torch::Tensor x) {
-    x = torch::sigmoid(layer1->forward(x));
-    x = torch::sigmoid(layer2->forward(x));
-    return x;
-  }
-  */
-  torch::Tensor forward(torch::Tensor x) {
-    for (auto it = layers.begin(); it != layers.end() - 1; ++it) {
-      x = torch::sigmoid((*it)->forward(x));
-    }
-
-    return torch::sigmoid(layers.back()->forward(x)) - 0.5;
-  }
-
-
-  //torch::nn::Linear layer1;
-  //torch::nn::Linear layer2;
-  std::vector<torch::nn::Linear> layers;
-};
 
 
 // If we use the IIR filters to create correlation with the error:
@@ -71,111 +29,9 @@ static void initialize_filters(int numInputs, float sampleRate)
   }
 }
 
-
-std::unique_ptr<RoboNet> net;
-std::unique_ptr<torch::optim::SGD> optimizer;
-
 boost::circular_buffer<std::vector<float>> previous_nn_outs(25);
 
-void initialize_net(int numInputLayers, bool useFilters, float sampleRate)
-{
-  ::useFilters = useFilters;
-  if (useFilters)
-    numInputLayers *= 10;
-  //torch::manual_seed(1);
-  //RoboNet net;
-  net = std::make_unique<RoboNet>(std::initializer_list<int>{numInputLayers, numInputLayers, 12, 1});
-  net->to(torch::kCPU);
-  optimizer = std::make_unique<torch::optim::SGD>(net->parameters(), torch::optim::SGDOptions(0.01) );
-
-  if (useFilters)
-    initialize_filters(numInputLayers, sampleRate);
-}
-
-// Error in range -1, 1. [-1, 0] wants the robot to turn left.
-double run_nn(cv::Mat &statFrame, std::vector<float>& in, double error)
-{
-
-
-  std::vector<float> networkInputs;
-
-  if (useFilters) {
-    networkInputs.reserve(in.size() * 10);
-    for (int j = 0; j < in.size(); ++j) {
-      float sample = in[j];
-      for (auto &filt : lowpassFilters[j]) {
-        networkInputs.push_back(filt.filter(sample));
-      }
-    }
-  }
-  torch::Tensor input = torch::from_blob(networkInputs.data(), networkInputs.size(), torch::kFloat32);
-
-  auto output = net->forward(input);
-
-  float out = output.data<float>()[0];
-
-  output.data<float>()[0] = -error;
-
-  output.backward();
-  optimizer->step();
-  return out;
-
-
-  //previous_nn_outs.push_back(in);
-
-  // Output 0 - 0.5 turns left
-  // Output 0.5 - 1 turns right
-
-  //float result = output.data<float>()[0];
-
-  //if (!previous_nn_outs.full()) return result;
-
-
-  // Circular buffer is full. We can get the earlier inputs, calculate tensor(output)
-  // and do backprop on that with the current error.
-
-
-
-
-
-  //auto old_inputs = previous_nn_outs.front();
-  //auto old_in_tensor = torch::from_blob(old_inputs.data(), old_inputs.size());
-  //auto old_output = net->forward(old_in_tensor).detach(); // We want to stop the graph at the output layer
-
-
-  //std::cout << "dfsfs is " << res << " " << result << std::endl;
-//  cvui::printf(statFrame, 10, 10, "Old tensor output : %f", old_output.data<float>()[0]);
-//  cvui::printf(statFrame, 10, 30, "Current error :     %f", error);
-//
-//
-//
-//  old_output.data<float>()[0] = error;
-//  old_output.backward();
-  //torch::Tensor errorT = torch::from_blob(&res, 1, torch::kFloat32);
-
-
-  //auto loss = torch::l1_loss(old_output, errorT);
-  //auto loss = old_output + errorT;
-
-  //loss.data<float>()[0] = res;
-
-  //if (error == 0) return result;
-
-  //std::cout << "error is: " << loss.item().toFloat() << std::endl;
-
-
-
-  //output.sub(leadError).backward();
-  //optimizer->step();
-
-  //return result;
-}
-
-
-
 std::unique_ptr<Net> samanet;
-
-
 
 void initialize_samanet(int numInputLayers, bool useFilters, float sampleRate)
 {

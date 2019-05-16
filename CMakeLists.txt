@@ -14,3 +14,6 @@ find_package(Boost REQUIRED)
 add_executable(robonet main.cpp serialib.cpp neural.cpp neural.h)
 target_link_libraries(robonet clBP ${OpenCV_LIBS} iir)
 target_include_directories(robonet PRIVATE iir1)
+
+add_executable(camtrack tracking/Source.cpp)
+target_link_libraries(camtrack ${OpenCV_LIBS})

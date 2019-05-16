@@ -106,3 +106,8 @@ double run_samanet(cv::Mat &statFrame, std::vector<float> &predictorDeltas, doub
   return net_out;
 #endif
 }
+
+void dump_samanet()
+{
+  samanet->saveWeights();
+}

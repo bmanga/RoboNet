@@ -35,9 +35,7 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 double errorMult = 1.0;
 double nnMult = 10.0;
 
-std::ofstream errorsfs ("errors.txt");
-std::ofstream netoutfs ("netout.txt");
-std::ofstream finalfs ("final.txt");
+std::ofstream datafs ("data.csv");
 
 using clk = std::chrono::system_clock;
 clk::time_point start_time;
@@ -46,8 +44,6 @@ boost::circular_buffer<double> prevErrors(30 * 60);
 
 int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<float> &predictorDeltas)
 {
-  errorsfs << deltaSensorData << std::endl;
-
   prevErrors.push_back(deltaSensorData);
 
   double errorGain = 5;
@@ -84,8 +80,6 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
   cvui::text(statFrame, 220, 30, "Error:");
   cvui::printf(statFrame, 300, 30, "%+.4lf", deltaSensorData);
 
-  netoutfs << result << "\n";
-
   {
     std::vector<double> error_list(prevErrors.begin(), prevErrors.end());
     cvui::sparkline(statFrame, error_list, 10, 50, 580, 200);
@@ -96,8 +90,19 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
 
   }
   double error2 = (error * errorMult + result * nnMult) * gain;
-  return (int16_t)(error2 * 0.5);
+  int16_t differentialOut = (int16_t)(error2 * 0.5);
 
+  using namespace std::chrono;
+  milliseconds ms = duration_cast< milliseconds >(
+    system_clock::now().time_since_epoch()
+  );
+
+  datafs << ms.count() << ","       //timestamp
+         << deltaSensorData << ","  //error from error units
+         << result << ","           //net output
+         << differentialOut << "\n";// final differential output
+
+  return differentialOut;
 }
 
 #if defined (_WIN32) || defined( _WIN64)
@@ -182,7 +187,7 @@ int main(int, char**)
   printf("Serial port opened successfully !\n");
   VideoCapture cap(1); // open the default camera
   //cap.set(CAP_PROP_FPS, 10);
-  cap.set(CAP_PROP_FOURCC, CV_FOURCC('M', 'J', 'P', 'G'));
+q
   if (!cap.isOpened())  // check if we succeeded
     return -1;
 
@@ -264,7 +269,6 @@ int main(int, char**)
       //int16_t error = deltaSensor * 50;
 
       Ret = LS.Write(&error, sizeof(error));
-      finalfs << error << "\n";
     }
 
     cvui::update();
@@ -273,5 +277,7 @@ int main(int, char**)
     cv::imshow(STAT_WINDOW, statFrame);
     if (waitKey(20) == ESC_key) break;
   }
+
+  dump_samanet();
   return 0;
 }

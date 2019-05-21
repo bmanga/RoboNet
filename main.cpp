@@ -67,7 +67,7 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
 
 
   cvui::text(statFrame, 10, 320, "Sensor Error Multiplier: ");
-  cvui::trackbar(statFrame, 180, 300, 400, &errorMult, (double)0.0, (double)1.0, 1, "%.2Lf", 0, 0.05);
+  cvui::trackbar(statFrame, 180, 300, 400, &errorMult, (double)0.0, (double)5.0, 1, "%.2Lf", 0, 0.05);
 
   cvui::text(statFrame, 10, 370, "Net Output Multiplier: ");
   cvui::trackbar(statFrame, 180, 350, 400, &nnMult, (double)0.0, (double)10.0, 1, "%.2Lf", 0, 0.05);
@@ -91,7 +91,7 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
   }
   double error2 = (error * errorMult + result * nnMult) * gain;
   int16_t differentialOut = (int16_t)(error2 * 0.5);
-
+  
   using namespace std::chrono;
   milliseconds ms = duration_cast< milliseconds >(
     system_clock::now().time_since_epoch()
@@ -146,8 +146,8 @@ double calculateErrorValue(Mat &frame, Mat &output)
 
 
   for (int j = 0; j < numErrorSensors; ++j) {
-    auto lPred = Rect(areaMiddleLine - (j + 1) * sensorWidth, area.y, sensorWidth, sensorHeight);
-    auto rPred = Rect(areaMiddleLine + (j)* sensorWidth, area.y, sensorWidth, sensorHeight);
+    auto lPred = Rect(areaMiddleLine - 30 - (j + 1) * sensorWidth, area.y, sensorWidth, sensorHeight);
+    auto rPred = Rect(areaMiddleLine + 30 + (j)* sensorWidth, area.y, sensorWidth, sensorHeight);
 
     double grayMeanL = (mean(Mat(frame, lPred))[0]) > whiteSensorThreshold;
     double grayMeanR = (mean(Mat(frame, rPred))[0]) > whiteSensorThreshold;
@@ -187,7 +187,7 @@ int main(int, char**)
   printf("Serial port opened successfully !\n");
   VideoCapture cap(1); // open the default camera
   //cap.set(CAP_PROP_FPS, 10);
-q
+
   if (!cap.isOpened())  // check if we succeeded
     return -1;
 

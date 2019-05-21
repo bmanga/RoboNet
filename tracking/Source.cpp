@@ -72,7 +72,7 @@ int main() {
   float speed = 0.0;
   int previous_diff = 0;
   ofstream myfile;
-  VideoCapture cap(1); // Open the camera
+  VideoCapture cap(2); // Open the camera
   Mat frame_hsv, frame_threshold, frame1;
   int thresh = 100;
   double areas;

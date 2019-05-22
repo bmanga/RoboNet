@@ -9,9 +9,12 @@
 #include <math.h>
 #include <vector>
 #include <stdlib.h>
+#include <ctime>
+#include <chrono>
 
 using namespace cv;
 using namespace std;
+using namespace std::chrono;
 
 constexpr int ESC_key = 27;
 int h_lower = 0;
@@ -30,6 +33,9 @@ int colour = 0;
 int pos = 0;
 int green = 100000;
 int blue = 1000000;
+int yellow = 1000000;
+int pink = 1000000;
+int cyan = 1000000;
 Mat frame;
 
 static void on_trackbar_lower_h(int, void*)
@@ -66,6 +72,18 @@ static void colour_change(int, void*)
     imwrite("C:/Users/Callum/Documents/RoboNet/tracking/traces/Green.png", frame);
     blue = pos;
   }
+  if (c_colour == 3) {
+    imwrite("C:/Users/Callum/Documents/RoboNet/tracking/traces/blue.png", frame);
+    yellow = pos;
+  }
+  if (c_colour == 4) {
+    imwrite("C:/Users/Callum/Documents/RoboNet/tracking/traces/yellow.png", frame);
+    pink = pos;
+  }
+  if (c_colour == 5) {
+    imwrite("C:/Users/Callum/Documents/RoboNet/tracking/traces/pink.png", frame);
+    cyan = pos;
+  }
 }
 
 int main() {
@@ -93,7 +111,7 @@ int main() {
     createTrackbar("S Upper", "Sliders", &s_upper_slider, 255, on_trackbar_upper_s);
     createTrackbar("V Lower", "Sliders", &v_lower_slider, 255, on_trackbar_lower_v);
     createTrackbar("V Upper", "Sliders", &v_upper_slider, 255, on_trackbar_upper_v);
-    createTrackbar("Colour", "Sliders", &c_colour, 2, colour_change);
+    createTrackbar("Colour", "Sliders", &c_colour, 5, colour_change);
 
     cap >> frame1;
     flip(frame1, frame, 1);
@@ -103,11 +121,12 @@ int main() {
     imshow("HSV", frame_hsv);
 
     //Fixed values
-    inRange(frame_hsv, Scalar(0, 59, 255), Scalar(27, 255, 255), frame_threshold);
+    //inRange(frame_hsv, Scalar(0, 59, 255), Scalar(27, 255, 255), frame_threshold);
     //If using sliders
     //inRange(frame_hsv, Scalar(h_lower, s_lower, v_lower), Scalar(h_upper, s_upper, v_upper), frame_threshold);
-
+    inRange(frame_hsv, Scalar(33, 0, 230), Scalar(179, 255, 255), frame_threshold);
     // Find contours from binary image 
+    
     int i;
     vector<Vec4i> hierarchy;
     vector<vector<Point> > contours;
@@ -127,7 +146,15 @@ int main() {
     //draw largest contour
     drawContours(frame_threshold, contours, maxPosition.y, Scalar(255), cv::FILLED);
     imshow("LargestContour", frame_threshold);
+    
+    vector<Point> track = contours[maxPosition.y];
 
+    myfile.open("track.csv", ios::app);
+    for (Point p : track) {
+      myfile << p.x << "," << p.y << "\n";
+    }
+    myfile.close();
+    
     //draw bounding rectangle around largest contour  
     Rect r;
     if (contours.size() >= 1)
@@ -148,14 +175,27 @@ int main() {
         float distance = sqrt((travel_x * travel_x) + (travel_y * travel_y)) * mpp;
         previous_center = center;
         trace[pos] = center;
-        myfile.open("data.txt", ios::app);
-        myfile << center << "\n";
+        std::time_t result = std::time(nullptr);
+        auto ms =
+          std::chrono::duration_cast<std::chrono::milliseconds>
+          (std::chrono::system_clock::now().time_since_epoch()).count();
+        myfile.open("no_nn.csv", ios::app);
+        myfile << ms << ","<< center.x << "," << center.y << ","<< c_colour << "\n";
         myfile.close();
 
         //Plots lines depending on colour selected
         for (int i = 0; i < pos; i++) {
           
-          if (i > blue) {
+          if (i > cyan) {
+            line(frame, trace[i], trace[i + 1], CV_RGB(0, 255, 255), 1.8, LINE_8, 0);
+          }
+          else if (i > pink) {
+            line(frame, trace[i], trace[i + 1], CV_RGB(255, 0, 255), 1.8, LINE_8, 0);
+          }
+          else if (i > yellow) {
+            line(frame, trace[i], trace[i + 1], CV_RGB(255, 255, 0), 1.8, LINE_8, 0);
+          }
+          else if (i > blue) {
             line(frame, trace[i], trace[i + 1], CV_RGB(0, 0, 255), 1.8, LINE_8, 0);
           }
           else if (i > green) {
@@ -166,8 +206,8 @@ int main() {
           }
         }
         pos += 1;
-
-      }
+        
+      } 
       video.write(frame);
       imshow("Frame", frame);
       if (waitKey(20) == ESC_key) {

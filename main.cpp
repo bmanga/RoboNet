@@ -174,7 +174,7 @@ int main(int, char**)
   cvui::init(STAT_WINDOW);
 
   auto statFrame = cv::Mat(400, 600, CV_8UC3);
-  initialize_samanet(nPredictors, true);
+  initialize_samanet(nPredictors);
 //  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);

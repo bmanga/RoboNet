@@ -1,23 +1,20 @@
 #include "neural.h"
 #include "clbp/Net.h"
 
-#include <vector>
-#include <string>
-#include <initializer_list>
-#include <memory>
+#include "cvui.h"
 #include <chrono>
 #include <fstream>
+#include <initializer_list>
+#include <memory>
 #include <opencv2/opencv.hpp>
-#include "cvui.h"
+#include <string>
+#include <vector>
 
 #include "bandpass.h"
 
-
 std::vector<std::array<Bandpass, 5>> bandpassFilters;
 
-
-static void initialize_filters(int numInputs, float sampleRate)
-{
+static void initialize_filters(int numInputs, float sampleRate) {
   bandpassFilters.resize(numInputs);
   double fs = 1;
   double fmin = fs / 39;
@@ -34,65 +31,54 @@ static void initialize_filters(int numInputs, float sampleRate)
 
 std::unique_ptr<Net> samanet;
 
-void initialize_samanet(int numInputLayers, float sampleRate)
-{
-    numInputLayers *= 5;
+void initialize_samanet(int numInputLayers, float sampleRate) {
+  numInputLayers *= 5;
 
   int nNeurons[] = {16, 8, 1};
   samanet = std::make_unique<Net>(3, nNeurons, numInputLayers);
   samanet->initWeights(Neuron::W_RANDOM, Neuron::B_NONE);
-  samanet->setLearningRate(0.05 );
+  samanet->setLearningRate(0.05);
 
-    initialize_filters(numInputLayers, sampleRate);
+  initialize_filters(numInputLayers, sampleRate);
 }
 
-
-std::ofstream weightDistancesfs ("weight_distances.csv");
+std::ofstream weightDistancesfs("weight_distances.csv");
 std::ofstream filterout("filterouts.csv");
 std::ofstream unfilteredout("unfilteredouts.csv");
 
-double run_samanet(cv::Mat &statFrame, std::vector<float> &predictorDeltas, double error)
-{
-
+double run_samanet(cv::Mat &statFrame, std::vector<float> &predictorDeltas,
+                   double error) {
 
   using namespace std::chrono;
-  milliseconds ms = duration_cast< milliseconds >(
-    system_clock::now().time_since_epoch()
-  );
+  milliseconds ms =
+      duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 
   std::vector<double> networkInputs;
 
-    filterout << "\n" << ms.count();
-    unfilteredout << "\n" << ms.count();
-    networkInputs.reserve(predictorDeltas.size() * 5);
-    for (int j = 0; j < predictorDeltas.size(); ++j) {
-      float sample = predictorDeltas[j];
-      for (auto &filt : bandpassFilters[j]) {
-        auto filtered = filt.filter(sample);
-        networkInputs.push_back(filtered);
-        if (j == 0) {
-          unfilteredout << "," << sample;
-          filterout << "," << filtered;
-        }
+  filterout << "\n" << ms.count();
+  unfilteredout << "\n" << ms.count();
+  networkInputs.reserve(predictorDeltas.size() * 5);
+  for (int j = 0; j < predictorDeltas.size(); ++j) {
+    float sample = predictorDeltas[j];
+    for (auto &filt : bandpassFilters[j]) {
+      auto filtered = filt.filter(sample);
+      networkInputs.push_back(filtered);
+      if (j == 0) {
+        unfilteredout << "," << sample;
+        filterout << "," << filtered;
       }
     }
-    samanet->setInputs(networkInputs.data());
-    samanet->propInputs();
-    samanet->setError(error);
-    samanet->propError();
-    samanet->updateWeights();
+  }
+  samanet->setInputs(networkInputs.data());
+  samanet->propInputs();
+  samanet->setError(error);
+  samanet->propError();
+  samanet->updateWeights();
 
-    weightDistancesfs << ms.count() << ","
-                      << samanet->getWeightDistanceLayer(0) << ","
-                      << samanet->getWeightDistanceLayer(1) << ","
-                      << samanet->getWeightDistanceLayer(2) << "\n";
-    return samanet->getOutput(0);
-
-
-
+  weightDistancesfs << ms.count() << "," << samanet->getWeightDistanceLayer(0)
+                    << "," << samanet->getWeightDistanceLayer(1) << ","
+                    << samanet->getWeightDistanceLayer(2) << "\n";
+  return samanet->getOutput(0);
 }
 
-void dump_samanet()
-{
-  samanet->saveWeights();
-}
+void dump_samanet() { samanet->saveWeights(); }

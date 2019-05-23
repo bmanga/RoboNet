@@ -1,6 +1,3 @@
-//#include "clbp/Neuron.h"
-//#include "clbp/Layer.h"
-//#include "clbp/Net.h"
 #include "opencv2/opencv.hpp"
 #include "serialib.h"
 
@@ -20,17 +17,10 @@ using namespace cv;
 using namespace std;
 constexpr int ESC_key = 27;
 
-static constexpr int nLayers = 3;
 static constexpr int nPredictorCols = 6;
 static constexpr int nPredictorRows = 8;
 static constexpr int nPredictors = nPredictorCols * nPredictorRows;
 
-
-int nNeurons[nLayers] = { nPredictors, 5, 1 };
-
-//Net net{ nLayers, nNeurons, nPredictors };
-
-//
 
 double errorMult = 1.5;
 double nnMult = 10.0;
@@ -50,21 +40,6 @@ int16_t onStepCompleted(cv::Mat &statFrame, double deltaSensorData, std::vector<
   double error = errorGain * deltaSensorData;
 
   int gain = 15;
-
-  //cout << "MAIN PROGRAM: NEXT ITERATION" << endl;
-  //net.setInputs(predictorDeltas.data());
-  //double learningRate = 0.01;
-  //net.setLearningRate(learningRate);
-  //net.propInputs();
-
-
-  //net.setError(-leadError);
-  //net.propError();
-  //net.updateWeights();
-  //need to do weight change first
-  //net.saveWeights();
-
-
 
   cvui::text(statFrame, 10, 320, "Sensor Error Multiplier: ");
   cvui::trackbar(statFrame, 180, 300, 400, &errorMult, (double)0.0, (double)5.0, 1, "%.2Lf", 0, 0.05);
@@ -155,8 +130,6 @@ double calculateErrorValue(Mat &frame, Mat &output)
 
     error += diff * sensorWeights[j];
 
-
-    //predictorDeltaMeans.push_back((grayMeanL - grayMeanR) / 255);
     putText(output, std::to_string((int)grayMeanL), Point{ lPred.x + lPred.width / 2 - 5, lPred.y + lPred.height / 2  + 5}, FONT_HERSHEY_TRIPLEX, 0.6, { 0,0,0 });
     putText(output, std::to_string((int)grayMeanR), Point{ rPred.x + rPred.width / 2 - 5, rPred.y + rPred.height / 2  + 5}, FONT_HERSHEY_TRIPLEX, 0.6, { 0,0,0 });
     rectangle(output, lPred, Scalar(50, 50, 50));
@@ -175,7 +148,6 @@ int main(int, char**)
 
   auto statFrame = cv::Mat(400, 600, CV_8UC3);
   initialize_samanet(nPredictors);
-//  net.initWeights(Neuron::W_ONES, Neuron::B_NONE);
   serialib LS;
   char Ret = LS.Open(DEVICE_PORT, 115200);
   if (Ret != 1) {                                                           // If an error occured...
@@ -183,15 +155,16 @@ int main(int, char**)
     return Ret;                                                         // ... quit the application
   }
   printf("Serial port opened successfully !\n");
-  VideoCapture cap(2); // open the default camera
-  //cap.set(CAP_PROP_FPS, 10);
+  VideoCapture cap(2); // open the on-board camera. This parameter might need to change.
 
-  if (!cap.isOpened())  // check if we succeeded
+  if (!cap.isOpened()){
+    printf("The selected video capture device is not available.\n");
     return -1;
+
+  }
 
 
   Mat edges;
-  //namedWindow("edges", 1);
 
 
   std::vector<float> predictorDeltaMeans;
@@ -207,13 +180,6 @@ int main(int, char**)
     Mat frame;
     cap >> frame; // get a new frame from camera
     cvtColor(frame, edges, COLOR_BGR2GRAY);
-
-
-
-    //cvui::window(statFrame, 100, 200, 200, 100, "Here");
-
-    //std::cout << "calculated error from image is: " << err << "\n";
-
 
     // Define the rect area that we want to consider.
 
@@ -247,7 +213,6 @@ int main(int, char**)
       }
     }
 
-    //cvtColor(edges, frame, COLOR_GRAY2RGB);
     double err = calculateErrorValue(edges, frame);
 
     line(frame, { areaMiddleLine, 0 }, { areaMiddleLine, frame.rows }, Scalar(50, 50, 255));
@@ -258,13 +223,8 @@ int main(int, char**)
 
 
     if (Ret > 0) {
-      //cout << "delta sensor is " << (int)deltaSensor << std::endl;
-      //cout << "image sensor is " << err << std::endl;
-      //if (deltaSensor != 0) system("mpv /usr/share/sounds/freedesktop/stereo/bell.oga");
-
 
       int16_t error = onStepCompleted(statFrame, err, predictorDeltaMeans);
-      //int16_t error = deltaSensor * 50;
 
       Ret = LS.Write(&error, sizeof(error));
     }

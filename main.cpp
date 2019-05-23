@@ -32,7 +32,7 @@ int nNeurons[nLayers] = { nPredictors, 5, 1 };
 
 //
 
-double errorMult = 1.0;
+double errorMult = 1.5;
 double nnMult = 10.0;
 
 std::ofstream datafs ("data.csv");
@@ -132,11 +132,9 @@ double calculateErrorValue(Mat &frame, Mat &output)
 
   std::array<double, numErrorSensors> sensorWeights;
 
-  // Linear weights, maybe consider exponential.
-  double increase = 1.0 / numErrorSensors;
   sensorWeights[numErrorSensors - 1] = 1;
-  for (int j = numErrorSensors - 2; j > 0; --j) {
-    sensorWeights[j] = sensorWeights[j + 1] * 0.65;
+  for (int j = numErrorSensors - 2; j >= 0; --j) {
+    sensorWeights[j] = sensorWeights[j + 1] * 0.60;
   }
 
 
@@ -185,7 +183,7 @@ int main(int, char**)
     return Ret;                                                         // ... quit the application
   }
   printf("Serial port opened successfully !\n");
-  VideoCapture cap(1); // open the default camera
+  VideoCapture cap(2); // open the default camera
   //cap.set(CAP_PROP_FPS, 10);
 
   if (!cap.isOpened())  // check if we succeeded
